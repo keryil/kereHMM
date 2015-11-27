@@ -1,21 +1,6 @@
 import numpy as np
 
 
-class Distribution(object):
-    def get_probability(self):
-        raise NotImplementedError()
-
-
-class DiscreteDistribution(Distribution):
-    """
-    I am a discrete distribution.
-    """
-
-    def __init__(self, n):
-        # initialize to 1/n
-        self.probabilities = np.matrix([[1. / n] * n] * n)
-
-
 class AbstractHMM(object):
     """
     This is an abstract HMM class which has to be inherited
@@ -35,13 +20,43 @@ class AbstractHMM(object):
     def transition_probability(self, origin, destination):
         """
         Returns the probability of transitioning from the origin state to destination state.
-        Uses state labels.
         :param origin:
         :param destination:
         :return:
         """
-        return self._transition_probability(self.stateLabels.index(origin),
-                                            self.stateLabels.index(destination))
+        return self.transitionMatrix[origin, destination]
 
-    def _transition_probability(self, origin, destination):
-        pass
+    def l2s(self, label):
+        """
+        Converts label to state index.
+        :rtype: str
+        :param label: state label
+        :return: state index
+        """
+        return self.stateLabels.index(label)
+
+    def s2l(self, state):
+        """
+        Converts state index to label
+        :rtype: int
+        :param state: state index
+        :return: state label
+        """
+        return self.stateLabels[state]
+
+    def initial_probability(self, state):
+        """
+
+        :param state:
+        :return:
+        """
+        return self.initialProbabilities[state]
+
+    def emission_probability(self, state, emission):
+        """
+
+        :param state:
+        :param emission:
+        :return:
+        """
+        return self.emissionDistributions[state].get_probability(emission)
