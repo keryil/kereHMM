@@ -14,7 +14,7 @@ class AbstractHMM(object):
         self.nStates = number_of_states
         self.transitionMatrix = np.asmatrix(np.empty((self.nStates, self.nStates)))
         self.transitionMatrix.fill(np.log(1. / self.nStates))
-        self.initialProbabilities = np.asmatrix(np.empty((self.nStates, self.nStates)))
+        self.initialProbabilities = np.empty(shape=self.nStates)
         self.initialProbabilities.fill(np.log(1. / self.nStates))
 
         self.emissionDistributions = np.array([None for _ in range(self.nStates)], dtype=object)
@@ -85,7 +85,12 @@ class AbstractHMM(object):
     def forward(self, observations):
         # alpha[time, state]
         alpha = np.empty(shape=(len(observations), self.nStates))
-        initial_emissions = [d[observations[0]] for d in self.emissionDistributions]
+        initial_emissions = np.array([d[observations[0]] for d in self.emissionDistributions])
+        print self.initialProbabilities
+        print initial_emissions
+        print self.initialProbabilities + initial_emissions
+        import sys
+        sys.stdout.flush()
         alpha[0,] = self.initialProbabilities + initial_emissions
 
         for t in range(1, len(observations)):
