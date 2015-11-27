@@ -17,3 +17,4 @@ class DiscreteHMM(AbstractHMM):
         :param observations:
         :return:
         """
+        pass

@@ -73,23 +73,47 @@ class AbstractHMM(object):
         """
         raise NotImplementedError()
 
-    def forward_probability(self, state, observations):
+    def forward_probability(self, observations):
         """
         This solves the problem 1 in Rabiner 1989, i.e.
         P(O|Model), equations 19, 20 and 21.
-        :param state:
         :param observations:
         :return:
         """
-        alpha = np.zeros(shape=len(observations))
-        alpha[0] = self.initial_probability(state) * self.emission_probability(state, observations[0])
-        for i in range(1, len(observations)):
-            for _state in range(self.nStates):
+        return np.logaddexp.reduce(self.forward(observations)[-1,])
 
-        raise NotImplementedError()
+    def forward(self, observations):
+        # alpha[time, state]
+        alpha = np.empty(shape=(len(observations), self.nStates))
+        initial_emissions = [d[observations[0]] for d in self.emissionDistributions]
+        alpha[0,] = self.initialProbabilities + initial_emissions
+
+        for t in range(1, len(observations)):
+            for state in range(self.nStates):
+                transitions = []
+                for _state in range(self.nStates):
+                    transitions.append(alpha[t - 1, _state] + self.transitionMatrix[_state, state])
+                alpha[t, state] = np.logaddexp.reduce(transitions) + \
+                                  self.emission_probability(state, observations[t])
+        return alpha
 
     def backward_probability(self, observations):
         raise NotImplementedError()
 
+    def backward(self, observations):
+        # beta[time, state]
+        beta = np.empty(shape=(len(observations), self.nStates))
+        beta[-1,] = 1
+
+        for t in reversed(range(len(observations) - 1)):
+            for state in range(self.nStates):
+                transitions = []
+                for _state in range(self.nStates):
+                    transitions.append(
+                        self.transitionMatrix[state, _state] + self.emission_probability(_state, observations[t + 1]) +
+                        beta[t + 1, _state])
+                beta[t, state] = np.logaddexp.reduce(transitions)
+        return beta
+
     def emission_probability(self, state, observation):
-        return self.emissionDistributions[state].get_probability(observation)
+        return self.emissionDistributions[state][observation]
