@@ -12,7 +12,7 @@ class AbstractHMM(object):
             state_labels = ["State_%d" % i for i in range(number_of_states)]
         assert len(set(state_labels)) == number_of_states
         self.nStates = number_of_states
-        self.transitionMatrix = np.asmatrix(np.empty((self.nStates, self.nStates)))
+        self.transitionMatrix = np.empty((self.nStates, self.nStates))
         self.transitionMatrix.fill(np.log(1. / self.nStates))
         self.initialProbabilities = np.empty(shape=self.nStates)
         self.initialProbabilities.fill(np.log(1. / self.nStates))
@@ -86,18 +86,12 @@ class AbstractHMM(object):
         # alpha[time, state]
         alpha = np.empty(shape=(len(observations), self.nStates))
         initial_emissions = np.array([d[observations[0]] for d in self.emissionDistributions])
-        print self.initialProbabilities
-        print initial_emissions
-        print self.initialProbabilities + initial_emissions
-        import sys
-        sys.stdout.flush()
         alpha[0,] = self.initialProbabilities + initial_emissions
 
         for t in range(1, len(observations)):
             for state in range(self.nStates):
-                transitions = []
-                for _state in range(self.nStates):
-                    transitions.append(alpha[t - 1, _state] + self.transitionMatrix[_state, state])
+                transitions = np.empty(shape=(self.nStates,))
+                transitions[:] = alpha[t - 1,] + self.transitionMatrix[:, state]
                 alpha[t, state] = np.logaddexp.reduce(transitions) + \
                                   self.emission_probability(state, observations[t])
         return alpha
@@ -108,17 +102,26 @@ class AbstractHMM(object):
     def backward(self, observations):
         # beta[time, state]
         beta = np.empty(shape=(len(observations), self.nStates))
-        beta[-1,] = 1
+        # this is log(1)
+        beta[-1,] = 0
 
         for t in reversed(range(len(observations) - 1)):
             for state in range(self.nStates):
-                transitions = []
-                for _state in range(self.nStates):
-                    transitions.append(
-                        self.transitionMatrix[state, _state] + self.emission_probability(_state, observations[t + 1]) +
-                        beta[t + 1, _state])
+                transitions = np.empty(shape=self.nStates)
+                transitions[:] = self.transitionMatrix[state,] + self.emission_probability(None, observations[t + 1]) + \
+                                 beta[t + 1,]
                 beta[t, state] = np.logaddexp.reduce(transitions)
         return beta
 
     def emission_probability(self, state, observation):
+        """
+        Returns the probability of an observation given the state. If the
+        state is None, an array containing the probability for each state
+        is returned instead.
+        :param state:
+        :param observation:
+        :return:
+        """
+        if state is None:
+            return np.array([self.emissionDistributions[s][observation] for s in range(self.nStates)])
         return self.emissionDistributions[state][observation]
