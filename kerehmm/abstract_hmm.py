@@ -128,15 +128,32 @@ class AbstractHMM(object):
     def backward_probability(self, observations):
         raise NotImplementedError()
 
-    def gamma(self, observations):
-        """
-        Equation 27 from Rabiner 1989. Utilised for training.
+    # def gamma(self, observations):
+    #     """
+    #     Equation 27 from Rabiner 1989. Utilised for training.
+    #
+    #     :param observations:
+    #     :return:
+    #     """
+    #     alpha_times_beta = self.forward(observations) + self.backward(observations)
+    #     gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
+    #     return gamma
 
+    def gamma(self, xi=None, observations=None):
+        """
+        Equation 38 from Rabiner 1989.
         :param observations:
         :return:
         """
-        alpha_times_beta = self.forward(observations) + self.backward(observations)
-        gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
+        if xi is None:
+            assert observations
+            xi = self.xi(observations)
+
+        gamma = np.empty(shape=(len(xi), self.nStates))
+        for t, matrix in enumerate(xi):
+            x = np.logaddexp.reduce(matrix[:], axis=1)[0]
+            print x
+            gamma[t] = x
         return gamma
 
     def xi(self, observations):
@@ -149,16 +166,15 @@ class AbstractHMM(object):
         xi = np.empty(shape=(len(observations), self.nStates, self.nStates))
         alpha = self.forward(observations)
         beta = self.backward(observations)
-        sum = np.empty(shape=len(observations))
-        for t in range(len(observations) - 1):
+        for t, _ in enumerate(observations[:-1]):
+            sum = -np.inf
             for i, j in product(range(self.nStates), range(self.nStates)):
                 xi[t, i, j] = alpha[t, i] \
                               + self.transitionMatrix[i, j] \
                               + self.emissionDistributions[j][observations[t + 1]] \
                               + beta[t + 1, j]
-                sum[t] = np.logaddexp(sum[t], xi[t, i, j])
-
-        xi[:] = xi[:] - sum[0]
+                sum = np.logaddexp(sum, xi[t, i, j])
+            xi[t, :] = xi[t, :] - sum
         return xi
 
     def backward(self, observations):
