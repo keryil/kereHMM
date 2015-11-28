@@ -2,9 +2,10 @@ import pytest
 from kerehmm.discrete_hmm import DiscreteHMM
 import numpy as np
 
+
 class TestDiscreteHMM(object):
-    nStates = 2
-    nSymbols = 2
+    nStates = 4
+    nSymbols = 5
 
     def new_hmm(self):
         hmm = DiscreteHMM(self.nStates, self.nSymbols)
@@ -35,5 +36,16 @@ class TestDiscreteHMM(object):
         prob_line[:] = np.logaddexp.reduce(prob_line + prob_trans) + prob_emit
         assert np.array_equal(hmm.forward([0, 0, 0])[2], prob_line)
 
-        # prob_line * self.nStates + prob_emit,
-        # (prob_line * self.nStates + prob_emit) * self.nStates + prob_emit]))
+    def test_viterbi_path(self):
+        hmm = self.new_hmm()
+        # zero out all transitions
+        delta_p = .00001
+        hmm.transitionMatrix[:] = np.log(delta_p)
+        for state in range(self.nStates - 1):
+            hmm.transitionMatrix[state, state + 1] = np.log(1 - delta_p * (self.nStates - 1))
+        hmm.initialProbabilities = np.array([np.log(1 - delta_p * (self.nStates - 1))] + \
+                                            [delta_p] * (self.nStates - 1))
+        true_path = np.array(range(self.nStates))
+
+        viterbi_path, viterbi_prob = hmm.viterbi_path(np.array([0] * self.nStates))
+        assert np.array_equal(viterbi_path, true_path)
