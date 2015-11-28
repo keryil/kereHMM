@@ -52,5 +52,8 @@ class TestDiscreteHMM(object):
         # as long as it is of size nStates
         true_path = np.array(range(self.nStates))
 
-        viterbi_path, viterbi_prob = hmm.viterbi_path(np.random.randint(0, self.nStates - 1, self.nStates))
+        # random observations
+        observations = np.random.randint(0, self.nStates - 1, self.nStates)
+
+        viterbi_path, viterbi_prob = hmm.viterbi_path(observations)
         assert np.array_equal(viterbi_path, true_path)
