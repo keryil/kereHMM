@@ -38,14 +38,19 @@ class TestDiscreteHMM(object):
 
     def test_viterbi_path(self):
         hmm = self.new_hmm()
-        # zero out all transitions
+        # zero out all transitions but one
         delta_p = .00001
         hmm.transitionMatrix[:] = np.log(delta_p)
         for state in range(self.nStates - 1):
             hmm.transitionMatrix[state, state + 1] = np.log(1 - delta_p * (self.nStates - 1))
+
+        # set the initial probs the same way
         hmm.initialProbabilities = np.array([np.log(1 - delta_p * (self.nStates - 1))] + \
                                             [delta_p] * (self.nStates - 1))
+
+        # now, the true path should always be the same regardless of the input,
+        # as long as it is of size nStates
         true_path = np.array(range(self.nStates))
 
-        viterbi_path, viterbi_prob = hmm.viterbi_path(np.array([0] * self.nStates))
+        viterbi_path, viterbi_prob = hmm.viterbi_path(np.random.randint(0, self.nStates - 1, self.nStates))
         assert np.array_equal(viterbi_path, true_path)
