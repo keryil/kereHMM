@@ -5,6 +5,8 @@ class Distribution(object):
     def get_probability(self, observation):
         raise NotImplementedError()
 
+    def __getitem__(self, item):
+        return self.get_probability(item)
 
 class DiscreteDistribution(Distribution):
     """
@@ -16,7 +18,5 @@ class DiscreteDistribution(Distribution):
         # initialize to 1/n
         self.probabilities = np.log(np.array([1. / n] * n))
 
-    def __getitem__(self, item):
-        return self.probabilities[item]
-        # def get_probability(self, observation):
-        #     return self.probabilities[observation]
+    def get_probability(self, observation):
+        return self.probabilities[observation]

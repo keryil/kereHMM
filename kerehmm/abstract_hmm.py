@@ -71,7 +71,36 @@ class AbstractHMM(object):
         :param observations:
         :return:
         """
-        raise NotImplementedError()
+        # delta holds the probabilities
+        # delta[time, state]
+        delta = np.empty(shape=(len(observations), self.nStates))
+
+        # psi holds the best states
+        # psi[time, state]
+        psi = np.empty(shape=(len(observations), self.nStates))
+
+        initial_emissions = np.array([d[observations[0]] for d in self.emissionDistributions])
+        delta[0, :] = self.initialProbabilities + initial_emissions
+        psi[0, :] = 0
+
+        for t in range(1, len(observations)):
+            for state in range(self.nStates):
+                transitions = np.empty(shape=(self.nStates,))
+                # probability of transitioning to this state at time t
+                # for each state
+                transitions[:] = delta[t - 1, :] + self.transitionMatrix[:, state]
+                delta[t, state] = np.max(transitions) + \
+                                  self.emission_probability(state, observations[t])
+                psi[t, state] = np.argmax(transitions)
+
+        # log probability of viterbi path
+        path_probability = np.max(delta[-1,])
+        path = np.empty_like(observations)
+        path[-1] = np.argmax(delta[-1,])
+        for t in reversed(range(len(observations) - 1)):
+            path[t] = psi[t + 1, path[t + 1]]
+
+        return path, path_probability
 
     def forward_probability(self, observations):
         """
