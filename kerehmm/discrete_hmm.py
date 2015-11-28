@@ -12,10 +12,5 @@ class DiscreteHMM(AbstractHMM):
         self.alphabetSize = alphabet_size
         self.emissionDistributions = [DiscreteDistribution(n=alphabet_size) for _ in range(self.nStates)]
 
-    def observation_probability(self, observations):
-        """
-        This implements
-        :param observations:
-        :return:
-        """
+    def train(self, observations):
         pass

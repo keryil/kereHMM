@@ -139,6 +139,27 @@ class AbstractHMM(object):
         gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
         return gamma
 
+    def xi(self, observations):
+        """
+        Equation 37 from Rabiner 1989. Utilised for training.
+        :param observations:
+        :return:
+        """
+        from itertools import product
+        xi = np.empty(shape=(len(observations), self.nStates, self.nStates))
+        alpha = self.forward(observations)
+        beta = self.backward(observations)
+        sum = np.empty(shape=len(observations))
+        for t in range(len(observations) - 1):
+            for i, j in product(range(self.nStates), range(self.nStates)):
+                xi[t, i, j] = alpha[t, i] \
+                              + self.transitionMatrix[i, j] \
+                              + self.emissionDistributions[j][observations[t + 1]] \
+                              + beta[t + 1, j]
+                sum[t] = np.logaddexp(sum[t], xi[t, i, j])
+        print sum[0]
+        xi[:] = xi[:] - sum[0]
+        return xi
 
     def backward(self, observations):
         # beta[time, state]
