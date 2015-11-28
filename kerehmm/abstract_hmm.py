@@ -157,7 +157,7 @@ class AbstractHMM(object):
                               + self.emissionDistributions[j][observations[t + 1]] \
                               + beta[t + 1, j]
                 sum[t] = np.logaddexp(sum[t], xi[t, i, j])
-        print sum[0]
+
         xi[:] = xi[:] - sum[0]
         return xi
 
