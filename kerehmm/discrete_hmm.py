@@ -1,5 +1,5 @@
-from abstract_hmm import AbstractHMM
-from distribution import DiscreteDistribution
+from .abstract_hmm import AbstractHMM
+from .distribution import DiscreteDistribution
 
 
 class DiscreteHMM(AbstractHMM):
