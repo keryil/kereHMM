@@ -52,6 +52,6 @@ class TestDiscreteHMM(object):
 
     def test_gamma(self):
         hmm = self.new_hmm()
-        gamma = hmm.gamma(range(self.nStates))
+        gamma = hmm.gamma(observations=range(self.nStates))
         for row in gamma:
             assert np.abs(1 - np.exp(np.logaddexp.reduce(row))) < .0000001
