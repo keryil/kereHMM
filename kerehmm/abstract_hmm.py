@@ -152,7 +152,6 @@ class AbstractHMM(object):
         gamma = np.empty(shape=(len(xi), self.nStates))
         for t, matrix in enumerate(xi):
             x = np.logaddexp.reduce(matrix[:], axis=1)[0]
-            print x
             gamma[t] = x
         return gamma
 
