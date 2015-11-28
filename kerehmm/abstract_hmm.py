@@ -128,6 +128,18 @@ class AbstractHMM(object):
     def backward_probability(self, observations):
         raise NotImplementedError()
 
+    def gamma(self, observations):
+        """
+        Equation 27 from Rabiner 1989. Utilised for training.
+
+        :param observations:
+        :return:
+        """
+        alpha_times_beta = self.forward(observations) + self.backward(observations)
+        gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
+        return gamma
+
+
     def backward(self, observations):
         # beta[time, state]
         beta = np.empty(shape=(len(observations), self.nStates))
@@ -154,3 +166,17 @@ class AbstractHMM(object):
         if state is None:
             return np.array([self.emissionDistributions[s][observation] for s in range(self.nStates)])
         return self.emissionDistributions[state][observation]
+
+    def setup_strict_left_to_right(self):
+        """
+        Converts this HMM into a strictly left-to-right one.
+        :return:
+        """
+        delta_p = .00001
+        self.transitionMatrix[:] = np.log(delta_p)
+        for state in range(self.nStates - 1):
+            self.transitionMatrix[state, state + 1] = np.log(1 - delta_p * (self.nStates - 1))
+
+        # set the initial probs the same way
+        self.initialProbabilities = np.array([np.log(1 - delta_p * (self.nStates - 1))] + \
+                                             [delta_p] * (self.nStates - 1))
