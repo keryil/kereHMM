@@ -3,7 +3,7 @@ from kerehmm.discrete_hmm import DiscreteHMM
 import numpy as np
 
 
-class TestDiscreteHMM(object):
+class DiscreteHMMTest(object):
     nStates = 4
     nSymbols = 5
 
@@ -11,6 +11,26 @@ class TestDiscreteHMM(object):
         hmm = DiscreteHMM(self.nStates, self.nSymbols)
         return hmm
 
+    def to_ghmm(self, hmm):
+        from .util import ghmm_from_discrete_hmm
+        return ghmm_from_discrete_hmm(hmm)
+
+
+class TestGhmmConversion(DiscreteHMMTest):
+    def test_probabilities(self):
+        hmm = self.new_hmm()
+        hmm_reference = self.to_ghmm(hmm)
+        trans = np.exp(hmm.transitionMatrix)
+        emit = np.exp([d.probabilities for d in hmm.emissionDistributions])
+        init = np.exp(hmm.initialProbabilities)
+        # trans_reference = hmm_reference.A
+        trans_reference, emit_reference, init_reference = hmm_reference.asMatrices()
+        assert np.array_equal(trans, trans_reference)
+        assert np.array_equal(init, init_reference)
+        assert np.array_equal(emit, emit_reference)
+
+
+class TestStandalone(DiscreteHMMTest):
     def test_array_sizes(self):
         hmm = self.new_hmm()
         assert len(hmm.emissionDistributions) == self.nStates
@@ -50,8 +70,20 @@ class TestDiscreteHMM(object):
         viterbi_path, viterbi_prob = hmm.viterbi_path(observations)
         assert np.array_equal(viterbi_path, true_path)
 
-    def test_gamma(self):
+        # def test_gamma(self):
+        #     hmm = self.new_hmm()
+        #     gamma = hmm.gamma(observations=range(self.nStates))
+        #     for row in gamma:
+        #         assert np.abs(1 - np.exp(np.logaddexp.reduce(row))) < .0000001
+
+
+class TestAgainstGhmm(DiscreteHMMTest):
+    def test_forward_against_ghmm(self):
+        from .util import ghmm_from_discrete_hmm
+        import ghmm
         hmm = self.new_hmm()
-        gamma = hmm.gamma(observations=range(self.nStates))
-        for row in gamma:
-            assert np.abs(1 - np.exp(np.logaddexp.reduce(row))) < .0000001
+        hmm_reference = ghmm_from_discrete_hmm(hmm)
+        seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 0, 0])
+        forward = np.exp(hmm.forward([0, 0, 0]))
+        forward_reference = hmm_reference.forward(seq)[0]
+        assert np.array_equal(forward, forward_reference)

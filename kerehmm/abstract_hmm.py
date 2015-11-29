@@ -114,7 +114,7 @@ class AbstractHMM(object):
     def forward(self, observations):
         # alpha[time, state]
         alpha = np.empty(shape=(len(observations), self.nStates))
-        initial_emissions = np.array([d[observations[0]] for d in self.emissionDistributions])
+        initial_emissions = self.emission_probability(state=None, observation=observations[0])
         alpha[0,] = self.initialProbabilities + initial_emissions
 
         for t in range(1, len(observations)):
@@ -128,16 +128,16 @@ class AbstractHMM(object):
     def backward_probability(self, observations):
         raise NotImplementedError()
 
-    # def gamma(self, observations):
-    #     """
-    #     Equation 27 from Rabiner 1989. Utilised for training.
-    #
-    #     :param observations:
-    #     :return:
-    #     """
-    #     alpha_times_beta = self.forward(observations) + self.backward(observations)
-    #     gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
-    #     return gamma
+    def gamma2(self, observations):
+        """
+        Equation 27 from Rabiner 1989. Utilised for training.
+
+        :param observations:
+        :return:
+        """
+        alpha_times_beta = self.forward(observations) + self.backward(observations)
+        gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
+        return gamma
 
     def gamma(self, xi=None, observations=None):
         """
