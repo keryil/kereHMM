@@ -71,6 +71,12 @@ class TestStandalone(DiscreteHMMTest):
         viterbi_path, viterbi_prob = hmm.viterbi_path(observations)
         assert np.array_equal(viterbi_path, true_path)
 
+    def test_training(self):
+        hmm = self.new_hmm()
+        observations = [0, 1, 1, 2, 0]  # ,0,1,2,0,1,2]
+
+        hmm.train(observations, iterations=1)
+
         # def test_gamma(self):
         #     hmm = self.new_hmm()
         #     gamma = hmm.gamma(observations=range(self.nStates))
