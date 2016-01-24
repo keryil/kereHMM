@@ -15,11 +15,13 @@ def ghmm_from_discrete_hmm(hmm):
 
 
 if __name__ == "__main__":
-    from discrete_hmm_test import TestDiscreteHMM
+    from discrete_hmm_test import DiscreteHMMTest
 
-    test = TestDiscreteHMM()
+    test = DiscreteHMMTest()
     hmm = test.new_hmm()
     domain = ghmm.Alphabet(range(hmm.alphabetSize))
     hmm_reference = ghmm_from_discrete_hmm(hmm)
+    seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 0, 0])
     print hmm_reference
-    print hmm_reference.forward(ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 1, 2]))
+    print hmm_reference.forward(seq)[0]
+    print hmm_reference.backward(seq)[0]

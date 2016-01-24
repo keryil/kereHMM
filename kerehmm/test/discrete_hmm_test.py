@@ -1,14 +1,14 @@
-import pytest
-from kerehmm.discrete_hmm import DiscreteHMM
 import numpy as np
+
+from kerehmm.discrete_hmm import DiscreteHMM
 
 
 class DiscreteHMMTest(object):
-    nStates = 4
-    nSymbols = 5
+    nStates = 3
+    nSymbols = 3
 
     def new_hmm(self):
-        hmm = DiscreteHMM(self.nStates, self.nSymbols)
+        hmm = DiscreteHMM(self.nStates, self.nSymbols)  # , verbose=True)
         return hmm
 
     def to_ghmm(self, hmm):
@@ -20,10 +20,11 @@ class TestGhmmConversion(DiscreteHMMTest):
     def test_probabilities(self):
         hmm = self.new_hmm()
         hmm_reference = self.to_ghmm(hmm)
+
         trans = np.exp(hmm.transitionMatrix)
         emit = np.exp([d.probabilities for d in hmm.emissionDistributions])
         init = np.exp(hmm.initialProbabilities)
-        # trans_reference = hmm_reference.A
+
         trans_reference, emit_reference, init_reference = hmm_reference.asMatrices()
         assert np.array_equal(trans, trans_reference)
         assert np.array_equal(init, init_reference)
@@ -78,12 +79,60 @@ class TestStandalone(DiscreteHMMTest):
 
 
 class TestAgainstGhmm(DiscreteHMMTest):
+
     def test_forward_against_ghmm(self):
         from .util import ghmm_from_discrete_hmm
         import ghmm
         hmm = self.new_hmm()
         hmm_reference = ghmm_from_discrete_hmm(hmm)
+        seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 0, 0, 0])
+        forward = hmm.forward([0, 0, 0, 0])
+
+        # remember that we have to convert stuff from ghmm to log scale
+        forward_reference, scale_reference = map(np.array, hmm_reference.forward(seq))
+        forward_reference_log = np.log(forward_reference)
+        print "Forward reference (scaled):\n", forward_reference
+        print "Forward:\n", np.exp(forward)
+
+        for i, c in enumerate(scale_reference):
+            forward_reference_log[i] += sum(np.log(scale_reference[:i + 1]))
+        print "Forward reference (unscaled):\n", np.exp(forward_reference_log)
+
+        assert np.allclose(forward, forward_reference_log)
+
+    def test_backward_against_ghmm(self):
+        from .util import ghmm_from_discrete_hmm
+        import ghmm
+        hmm = self.new_hmm()
+        hmm_reference = ghmm_from_discrete_hmm(hmm)
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 0, 0])
-        forward = np.exp(hmm.forward([0, 0, 0]))
-        forward_reference = hmm_reference.forward(seq)[0]
-        assert np.array_equal(forward, forward_reference)
+
+        # remember that we have to convert stuff from ghmm to log scale
+        _, scale_reference = hmm_reference.forward(seq)
+        # print "Forward referece", forward
+        print "Scale reference", scale_reference
+
+        # this is the reference backward array, untransformed (scaled)
+        backward_reference = np.array(hmm_reference.backward(seq, scalingVector=scale_reference))
+        print "Backward reference (scaled)", backward_reference
+
+        # this is our backward array, log transformed
+        backward = hmm.backward([0, 0, 0])
+        print "Backward", np.exp(backward)
+
+        # unscale the reference array
+        # get the product of scale_t,scale_t+1,...,scale_T for each t.
+        coefficients = np.array([np.prod(scale_reference[i:]) for i, _ in enumerate(scale_reference)])
+        print "Coefficients:", coefficients
+
+        # multiply each backwards_reference[i] by coefficients[i]
+        backward_reference[:] = np.multiply(backward_reference, coefficients).T
+
+        # test shape
+        print "Backward reference (unscaled)", backward_reference
+        assert backward.shape == backward_reference.shape
+
+        # test values
+        # print "Diff:", np.exp(backward) - backward_reference
+        backward_unscaled = np.exp(backward)
+        assert np.allclose(backward_unscaled, backward_reference)
