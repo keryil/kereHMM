@@ -21,7 +21,7 @@ before_install:
     - ./configure
     - make
     - sudo make install
-    - ldconfig
+    - sudo ldconfig
 
 script:
     - py.test
