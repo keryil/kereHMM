@@ -2,6 +2,7 @@ language: python
 python:
     - "2.7"
     - "3.4"
+sudo: required
 addons:
   apt:
     packages:
@@ -19,7 +20,7 @@ before_install:
     - ./autogen.sh
     - ./configure
     - make
-    - make install
+    - sudo make install
     - ldconfig
 
 script:
