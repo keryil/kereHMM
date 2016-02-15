@@ -57,7 +57,21 @@ class TestStandalone(DiscreteHMMTest):
         prob_line[:] = np.logaddexp.reduce(prob_line + prob_trans) + prob_emit
         assert np.array_equal(hmm.forward([0, 0, 0])[2], prob_line)
 
-    def test_viterbi_path(self):
+    def test_viterbi_path_with_emissions(self):
+        hmm = self.new_hmm()
+        hmm.setup_strict_left_to_right(set_emissions=True)
+
+        # now, the true path should always be the same regardless of the input,
+        # as long as it is of size nStates
+        true_path = np.array(range(self.nStates))
+
+        # random observations
+        observations = np.array(range(self.nStates))
+
+        viterbi_path, viterbi_prob = hmm.viterbi_path(observations)
+        assert np.array_equal(viterbi_path, true_path)
+
+    def test_viterbi_path_with_transitions(self):
         hmm = self.new_hmm()
         hmm.setup_strict_left_to_right()
 
@@ -73,6 +87,7 @@ class TestStandalone(DiscreteHMMTest):
 
     def test_training(self):
         hmm = self.new_hmm()
+        hmm.setup_strict_left_to_right()
         observations = [0, 1, 1, 2, 0]  # ,0,1,2,0,1,2]
 
         hmm.train(observations, iterations=1)
@@ -98,16 +113,17 @@ class TestAgainstGhmm(DiscreteHMMTest):
         forward_reference, scale_reference = map(np.array, hmm_reference.forward(seq))
         forward_reference_log = np.log(forward_reference)
         print "Forward reference (scaled):\n", forward_reference
-        print "Forward:\n", np.exp(forward)
 
         for i, c in enumerate(scale_reference):
             forward_reference_log[i] += sum(np.log(scale_reference[:i + 1]))
         print "Forward reference (unscaled):\n", np.exp(forward_reference_log)
 
+        print "Forward:\n", np.exp(forward)
+
         assert np.allclose(forward, forward_reference_log)
 
     def test_backward_against_ghmm(self):
-        from .util import ghmm_from_discrete_hmm
+        from kerehmm.test.util import ghmm_from_discrete_hmm
         import ghmm
         hmm = self.new_hmm()
         hmm_reference = ghmm_from_discrete_hmm(hmm)
@@ -122,20 +138,22 @@ class TestAgainstGhmm(DiscreteHMMTest):
         backward_reference = np.array(hmm_reference.backward(seq, scalingVector=scale_reference))
         print "Backward reference (scaled)", backward_reference
 
-        # this is our backward array, log transformed
-        backward = hmm.backward([0, 0, 0])
-        print "Backward", np.exp(backward)
-
         # unscale the reference array
         # get the product of scale_t,scale_t+1,...,scale_T for each t.
         coefficients = np.array([np.prod(scale_reference[i:]) for i, _ in enumerate(scale_reference)])
-        print "Coefficients:", coefficients
+        print "Reference coefficients:", coefficients
 
         # multiply each backwards_reference[i] by coefficients[i]
         backward_reference[:] = np.multiply(backward_reference, coefficients).T
 
         # test shape
         print "Backward reference (unscaled)", backward_reference
+
+        # this is our backward array, log transformed
+        backward = hmm.backward([0, 0, 0])
+
+        print "Backward", np.exp(backward)
+
         assert backward.shape == backward_reference.shape
 
         # test values
