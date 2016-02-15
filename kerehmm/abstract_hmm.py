@@ -7,7 +7,7 @@ class AbstractHMM(object):
     by all other HMM classes. It defines a generic HMM.
     """
 
-    def __init__(self, number_of_states, state_labels=None):
+    def __init__(self, number_of_states, state_labels=None, verbose=False):
         if state_labels is None:
             state_labels = ["State_%d" % i for i in range(number_of_states)]
         assert len(set(state_labels)) == number_of_states
@@ -19,6 +19,7 @@ class AbstractHMM(object):
 
         self.emissionDistributions = np.array([None for _ in range(self.nStates)], dtype=object)
         self.stateLabels = state_labels
+        self.verbose = verbose
 
     def transition_probability(self, origin, destination):
         """
@@ -116,6 +117,7 @@ class AbstractHMM(object):
         alpha = np.empty(shape=(len(observations), self.nStates))
         initial_emissions = self.emission_probability(state=None, observation=observations[0])
         alpha[0,] = self.initialProbabilities + initial_emissions
+        scaling_parameters = np.empty(shape=len(observations))
 
         for t in range(1, len(observations)):
             for state in range(self.nStates):
@@ -123,6 +125,11 @@ class AbstractHMM(object):
                 transitions[:] = alpha[t - 1,] + self.transitionMatrix[:, state]
                 alpha[t, state] = np.logaddexp.reduce(transitions) + \
                                   self.emission_probability(state, observations[t])
+        if self.verbose:
+            # print "pi = %s" % np.exp(self.initialProbabilities)
+            # print "b_i(O_t) = %s" % np.exp(initial_emissions)
+            print "alpha = %s" % np.exp(alpha)
+            print "***********"
         return alpha
 
     def backward_probability(self, observations):
@@ -135,8 +142,19 @@ class AbstractHMM(object):
         :param observations:
         :return:
         """
-        alpha_times_beta = self.forward(observations) + self.backward(observations)
-        gamma = alpha_times_beta - np.logaddexp.reduce(alpha_times_beta, axis=1)
+        alpha = self.forward(observations)
+        beta = self.backward(observations)
+        print "Alpha", np.exp(alpha)
+        print "Beta", np.exp(beta)
+        alpha_times_betas = (alpha + beta)
+        print "Product", np.exp(alpha_times_betas)
+        denom = np.logaddexp.reduce(alpha_times_betas)
+        print "Denominator", np.exp(denom)
+        denom_expanded = np.repeat(np.atleast_2d(denom), len(observations), axis=0)
+        print "Expanded Denominator", denom_expanded
+        gamma = alpha_times_betas - denom_expanded
+
+        print "GAMMA", np.exp(gamma)
         return gamma
 
     def gamma(self, xi=None, observations=None):
@@ -177,15 +195,22 @@ class AbstractHMM(object):
         return xi
 
     def backward(self, observations):
+        """
+        Computes the backward probabilities of a string of observations, as
+        in Rabiner 1989's equations 23, 24, and 25.
+        :param observations:
+        :return:
+        """
         # beta[time, state]
         beta = np.empty(shape=(len(observations), self.nStates))
         # this is log(1)
-        beta[-1,] = 0
+        beta[-1,] = np.log(1.0 / self.nStates)
 
         for t in reversed(range(len(observations) - 1)):
             for state in range(self.nStates):
                 transitions = np.empty(shape=self.nStates)
-                transitions[:] = self.transitionMatrix[state,] + self.emission_probability(None, observations[t + 1]) + \
+                transitions[:] = self.transitionMatrix[:, state] + self.emission_probability(state,
+                                                                                             observations[t + 1]) + \
                                  beta[t + 1,]
                 beta[t, state] = np.logaddexp.reduce(transitions)
         return beta
@@ -203,7 +228,7 @@ class AbstractHMM(object):
             return np.array([self.emissionDistributions[s][observation] for s in range(self.nStates)])
         return self.emissionDistributions[state][observation]
 
-    def setup_strict_left_to_right(self):
+    def setup_strict_left_to_right(self, set_emissions=False):
         """
         Converts this HMM into a strictly left-to-right one.
         :return:
@@ -216,3 +241,12 @@ class AbstractHMM(object):
         # set the initial probs the same way
         self.initialProbabilities = np.array([np.log(1 - delta_p * (self.nStates - 1))] + \
                                              [delta_p] * (self.nStates - 1))
+
+        if set_emissions:
+            # set emission probabilities so that each state only emits
+            # its own label
+            for i, (state, distribution) in enumerate(zip(range(self.nStates), self.emissionDistributions)):
+                probs = np.empty_like(distribution.probabilities)
+                probs[:] = -np.inf
+                probs[i] = 0
+                distribution.probabilities = probs
