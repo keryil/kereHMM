@@ -160,3 +160,25 @@ class TestAgainstGhmm(DiscreteHMMTest):
         # print "Diff:", np.exp(backward) - backward_reference
         backward_unscaled = np.exp(backward)
         assert np.allclose(backward_unscaled, backward_reference)
+
+    def test_viterbi_against_hmm(self):
+        from kerehmm.test.util import ghmm_from_discrete_hmm
+        import ghmm
+
+        hmm = self.new_hmm()
+        hmm.setup_strict_left_to_right(set_emissions=True)
+        domain = ghmm.Alphabet(range(hmm.alphabetSize))
+
+        hmm_reference = ghmm_from_discrete_hmm(hmm)
+        seq = list(range(self.nSymbols))
+        print "True path and emission: {}".format(seq)
+        true_path = seq
+        reference_path, reference_prob = hmm_reference.viterbi(ghmm.SequenceSet(domain,
+                                                                                [seq]))
+        path, prob = hmm.viterbi_path(seq)
+        print "Reference path: {}".format(reference_path)
+        print "Calculated path: {}".format(path)
+        print "Reference prob: {}, Calculated prob: {}".format(reference_prob, prob)
+        assert np.all(np.equal(true_path, reference_path))
+        assert np.all(np.equal(true_path, path))
+        assert np.isclose(prob, reference_prob)
