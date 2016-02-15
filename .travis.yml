@@ -14,7 +14,7 @@ addons:
     - libxml++2.6-dev
     - swig
 install:
-    - svn checkout svn://svn.code.sf.net/p/ghmm/code/trunk/ghmm ghmm
+    - svn checkout svn://svn.code.sf.net/p/ghmm/code/trunk/ghmm ghmm_
     - cd ghmm
     - sh autogen.sh
     - sudo ./configure
@@ -22,6 +22,7 @@ install:
     - sudo make install
     - sudo ldconfig
     - cd ..
+    - ln -s ghmm ghmm_/ghmmwrapper
 
 script:
     - py.test
