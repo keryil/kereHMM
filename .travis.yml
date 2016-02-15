@@ -2,6 +2,16 @@ language: python
 python:
     - "2.7"
     - "3.4"
+addons:
+  apt:
+    packages:
+    - build-essential
+    - automake
+    - autoconf
+    - libtool
+    - python-dev
+    - libxml++2.6-dev
+    - swig
 before_install:
     - pip install pytest pytest-cov numpy
     - svn checkout svn://svn.code.sf.net/p/ghmm/code/trunk/ghmm ghmm
@@ -10,5 +20,7 @@ before_install:
     - ./configure
     - make
     - make install
+    - ldconfig
+
 script:
     - py.test
