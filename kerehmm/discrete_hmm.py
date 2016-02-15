@@ -5,7 +5,8 @@ import numpy as np
 from .abstract_hmm import AbstractHMM
 from .distribution import DiscreteDistribution
 
-add_logs = lambda lst: reduce(np.logaddexp, lst)
+
+# add_logs = lambda lst: reduce(np.logaddexp, lst)
 
 class DiscreteHMM(AbstractHMM):
     """
