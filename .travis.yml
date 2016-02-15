@@ -17,8 +17,8 @@ install:
     - svn checkout svn://svn.code.sf.net/p/ghmm/code/trunk/ghmm ghmm
     - cd ghmm
     - sh autogen.sh
-    - ./configure --without-python
-    - make
+    - sudo ./configure
+    - sudo make
     - sudo make install
     - sudo ldconfig
     - cd ghmmwrapper
