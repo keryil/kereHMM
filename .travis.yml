@@ -24,6 +24,7 @@ install:
     - cd ghmmwrapper
     - python setup.py build
     - python setup.py install
+    - cd ../..
 
 script:
     - py.test
