@@ -3,6 +3,6 @@ python:
     - "2.7"
     - "3.4"
 before_install:
-    - pip install pytest pytest-cov numpy
+    - pip install pytest pytest-cov numpy ghmm
 script:
     - py.test
