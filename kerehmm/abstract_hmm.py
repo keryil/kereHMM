@@ -27,17 +27,31 @@ class AbstractHMM(object):
         self.stateLabels = state_labels
         self.verbose = verbose
 
-    def sanity_check(self):
+    def sanity_check(self, normalize=False):
         """
-        Checks if the initial, transition and emission probabilities sum to one.
+        Checks if the parameters are in range, and if the distributions provided are true probability distributions.
         :return:
         """
         assert np.isclose(np.logaddexp.reduce(self.initialProbabilities), np.log(1))
+        if self.verbose:
+            print "SANITY CHECK: transmat\n{}".format(np.exp(self.transitionMatrix))
         for (row, _), (column, _) in zip(enumerate(self.transitionMatrix), enumerate(self.transitionMatrix.T)):
             sum1 = np.logaddexp.reduce(self.transitionMatrix[row])
             sum2 = np.logaddexp.reduce(self.transitionMatrix[:, column])
-            assert np.isclose(sum1, np.log(1))
-            assert np.isclose(sum2, np.log(1))
+            if self.verbose:
+                print "SANITY CHECK #{}: Row sum: {}, Column sum: {}".format(row, sum1, sum2)
+            try:
+                assert np.isclose(sum1, np.log(1))
+            except AssertionError, e:
+                print "Offending row: {}".format(row)
+                raise e
+
+                # try:
+                #     assert np.isclose(sum2, np.log(1))
+                # except AssertionError, e:
+                #     print "Offending column: {}\nOffending sum: {}".format(column, np.exp(sum2))
+                #     print np.exp(self.transitionMatrix.T[column])
+                #     raise e
 
     def transition_probability(self, origin, destination):
         """
@@ -174,6 +188,10 @@ class AbstractHMM(object):
         print "GAMMA", np.exp(gamma)
         return gamma
 
+    def gamma3(self, alpha, beta):
+        gamma = alpha + beta - np.expand_dims(np.logaddexp.reduce(alpha + beta, axis=-1), axis=1)
+        return gamma
+
     def gamma(self, xi=None, observations=None):
         """
         Equation 38 from Rabiner 1989.
@@ -183,16 +201,16 @@ class AbstractHMM(object):
         if xi is None:
             assert observations
             xi = self.xi(observations)
+        alpha = self.forward(observations)
+        beta = self.backward(observations)
         gamma = np.logaddexp.reduce(xi, axis=-1)
         # print np.exp(gamma)
         # append last line
-        alpha = self.forward(observations)
-        beta = self.backward(observations)
         prod = alpha[-1,] + beta[-1,]
         prod = prod - np.logaddexp.reduce(prod)
-        print np.exp(prod)
+        # print np.exp(prod)
         gamma = np.vstack((gamma, prod))
-        # gamma = np.empty(shape=(len(xi), self.nStates))
+        gamma = np.empty(shape=(len(xi), self.nStates))
         # for t, matrix in enumerate(xi):
         #     x = np.logaddexp.reduce(matrix[:], axis=1)[0]
         #     gamma[t] = x
@@ -216,10 +234,10 @@ class AbstractHMM(object):
             for i, j in product(range(self.nStates), range(self.nStates)):
                 xi[t, i, j] = alpha[t, i] \
                               + self.transitionMatrix[i, j] \
-                              + self.emissionDistributions[j].get_probability(observations[t + 1]) \
+                              + self.emission_probability(j, observations[t + 1]) \
                               + beta[t + 1, j]
-                running_sum = np.logaddexp(running_sum, xi[t, i, j])
-            xi[t, :] -= running_sum
+                # running_sum = np.logaddexp(running_sum, xi[t, i, j])
+            xi[t, :] -= np.logaddexp.reduce(alpha[-1])
         return xi
 
     def backward(self, observations):
