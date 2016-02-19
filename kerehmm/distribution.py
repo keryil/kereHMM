@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 
+from kerehmm.util import random_simplex
+
+
 class Distribution(object):
     def get_probability(self, observation):
         raise NotImplementedError()
@@ -13,10 +16,12 @@ class DiscreteDistribution(Distribution):
     I am a discrete distribution.
     """
 
-    def __init__(self, n):
+    def __init__(self, n, randomize=False):
         self.n = n
         # initialize to 1/n
         self.probabilities = np.log(np.array([1. / n] * n))
+        if randomize:
+            self.probabilities = np.log(random_simplex(n))
 
     def get_probability(self, observation):
         return self.probabilities[observation]

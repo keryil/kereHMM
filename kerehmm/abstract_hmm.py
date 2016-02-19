@@ -1,5 +1,7 @@
 import numpy as np
 
+from kerehmm.util import DELTA_P, random_simplex
+
 
 class AbstractHMM(object):
     """
@@ -7,19 +9,35 @@ class AbstractHMM(object):
     by all other HMM classes. It defines a generic HMM.
     """
 
-    def __init__(self, number_of_states, state_labels=None, verbose=False):
+    def __init__(self, number_of_states, state_labels=None, verbose=False, random_transitions=False):
         if state_labels is None:
             state_labels = ["State_%d" % i for i in range(number_of_states)]
         assert len(set(state_labels)) == number_of_states
         self.nStates = number_of_states
         self.transitionMatrix = np.empty((self.nStates, self.nStates))
-        self.transitionMatrix.fill(np.log(1. / self.nStates))
         self.initialProbabilities = np.empty(shape=self.nStates)
-        self.initialProbabilities.fill(np.log(1. / self.nStates))
+        if not random_transitions:
+            self.transitionMatrix.fill(np.log(1. / self.nStates))
+            self.initialProbabilities.fill(np.log(1. / self.nStates))
+        else:
+            self.transitionMatrix = np.log(random_simplex(self.nStates, two_d=True))
+            self.initialProbabilities = np.log(random_simplex(self.nStates))
 
         self.emissionDistributions = np.array([None for _ in range(self.nStates)], dtype=object)
         self.stateLabels = state_labels
         self.verbose = verbose
+
+    def sanity_check(self):
+        """
+        Checks if the initial, transition and emission probabilities sum to one.
+        :return:
+        """
+        assert np.isclose(np.logaddexp.reduce(self.initialProbabilities), np.log(1))
+        for (row, _), (column, _) in zip(enumerate(self.transitionMatrix), enumerate(self.transitionMatrix.T)):
+            sum1 = np.logaddexp.reduce(self.transitionMatrix[row])
+            sum2 = np.logaddexp.reduce(self.transitionMatrix[:, column])
+            assert np.isclose(sum1, np.log(1))
+            assert np.isclose(sum2, np.log(1))
 
     def transition_probability(self, origin, destination):
         """
@@ -117,17 +135,16 @@ class AbstractHMM(object):
         alpha = np.empty(shape=(len(observations), self.nStates))
         initial_emissions = self.emission_probability(state=None, observation=observations[0])
         alpha[0,] = self.initialProbabilities + initial_emissions
-        scaling_parameters = np.empty(shape=len(observations))
+        # scaling_parameters = np.empty(shape=len(observations))
 
-        for t in range(1, len(observations)):
+        for t, obs in enumerate(observations):
+            if t == 0:
+                continue
             for state in range(self.nStates):
                 transitions = np.empty(shape=(self.nStates,))
                 transitions[:] = alpha[t - 1,] + self.transitionMatrix[:, state]
-                alpha[t, state] = np.logaddexp.reduce(transitions) + \
-                                  self.emission_probability(state, observations[t])
+                alpha[t, state] = np.logaddexp.reduce(transitions) + self.emission_probability(state, obs)
         if self.verbose:
-            # print "pi = %s" % np.exp(self.initialProbabilities)
-            # print "b_i(O_t) = %s" % np.exp(initial_emissions)
             print "alpha = %s" % np.exp(alpha)
             print "***********"
         return alpha
@@ -166,32 +183,43 @@ class AbstractHMM(object):
         if xi is None:
             assert observations
             xi = self.xi(observations)
-
-        gamma = np.empty(shape=(len(xi), self.nStates))
-        for t, matrix in enumerate(xi):
-            x = np.logaddexp.reduce(matrix[:], axis=1)[0]
-            gamma[t] = x
+        gamma = np.logaddexp.reduce(xi, axis=-1)
+        # print np.exp(gamma)
+        # append last line
+        alpha = self.forward(observations)
+        beta = self.backward(observations)
+        prod = alpha[-1,] + beta[-1,]
+        prod = prod - np.logaddexp.reduce(prod)
+        print np.exp(prod)
+        gamma = np.vstack((gamma, prod))
+        # gamma = np.empty(shape=(len(xi), self.nStates))
+        # for t, matrix in enumerate(xi):
+        #     x = np.logaddexp.reduce(matrix[:], axis=1)[0]
+        #     gamma[t] = x
         return gamma
 
-    def xi(self, observations):
+    def xi(self, observations, alpha=None, beta=None):
         """
         Equation 37 from Rabiner 1989. Utilised for training.
         :param observations:
         :return:
         """
         from itertools import product
-        xi = np.empty(shape=(len(observations), self.nStates, self.nStates))
-        alpha = self.forward(observations)
-        beta = self.backward(observations)
+        xi = np.empty(shape=(len(observations) - 1, self.nStates, self.nStates))
+        if alpha is not None:
+            alpha = self.forward(observations)
+        if beta is not None:
+            beta = self.backward(observations)
+
         for t, _ in enumerate(observations[:-1]):
-            sum = -np.inf
+            running_sum = -np.inf
             for i, j in product(range(self.nStates), range(self.nStates)):
                 xi[t, i, j] = alpha[t, i] \
                               + self.transitionMatrix[i, j] \
-                              + self.emissionDistributions[j][observations[t + 1]] \
+                              + self.emissionDistributions[j].get_probability(observations[t + 1]) \
                               + beta[t + 1, j]
-                sum = np.logaddexp(sum, xi[t, i, j])
-            xi[t, :] = xi[t, :] - sum
+                running_sum = np.logaddexp(running_sum, xi[t, i, j])
+            xi[t, :] -= running_sum
         return xi
 
     def backward(self, observations):
@@ -203,16 +231,19 @@ class AbstractHMM(object):
         """
         # beta[time, state]
         beta = np.empty(shape=(len(observations), self.nStates))
-        # this is log(1)
-        beta[-1,] = np.log(1.0 / self.nStates)
+        # this used to be log(1), but I changed it to mimic ghmm library.
+        beta[-1,] = np.log(1.0)  # / self.nStates)
 
-        for t in reversed(range(len(observations) - 1)):
-            for state in range(self.nStates):
+        for t in range(0, len(observations) - 1)[::-1]:
+            # print beta
+            for i in range(self.nStates):
                 transitions = np.empty(shape=self.nStates)
-                transitions[:] = self.transitionMatrix[:, state] + self.emission_probability(state,
-                                                                                             observations[t + 1]) + \
-                                 beta[t + 1,]
-                beta[t, state] = np.logaddexp.reduce(transitions)
+                transitions[:] = self.transitionMatrix[i, :] + \
+                                 self.emission_probability(None,
+                                                           observations[t + 1])
+
+                beta[t, i] = np.logaddexp.reduce(transitions + beta[t + 1,])
+        # beta[-1, ] = np.log(1.0 / self.nStates)
         return beta
 
     def emission_probability(self, state, observation):
@@ -233,14 +264,19 @@ class AbstractHMM(object):
         Converts this HMM into a strictly left-to-right one.
         :return:
         """
-        delta_p = .00001
+        delta_p = DELTA_P
         self.transitionMatrix[:] = np.log(delta_p)
-        for state in range(self.nStates - 1):
-            self.transitionMatrix[state, state + 1] = np.log(1 - delta_p * (self.nStates - 1))
+        for state in range(self.nStates):
+            try:
+                self.transitionMatrix[state, state + 1] = np.log(1 - delta_p * (self.nStates - 1))
+            # last state cannot have a valid trans[state+1]
+            except IndexError:
+                assert state == self.nStates - 1
+                self.transitionMatrix[state, 0] = np.log(1 - delta_p * (self.nStates - 1))
 
         # set the initial probs the same way
         self.initialProbabilities = np.array([np.log(1 - delta_p * (self.nStates - 1))] + \
-                                             [delta_p] * (self.nStates - 1))
+                                             [np.log(delta_p)] * (self.nStates - 1))
 
         if set_emissions:
             # set emission probabilities so that each state only emits

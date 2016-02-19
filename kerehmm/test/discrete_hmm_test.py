@@ -1,14 +1,16 @@
 import numpy as np
 
 from kerehmm.discrete_hmm import DiscreteHMM
+from kerehmm.util import random_simplex
 
 
 class DiscreteHMMTest(object):
     nStates = 3
     nSymbols = 3
 
-    def new_hmm(self):
-        hmm = DiscreteHMM(self.nStates, self.nSymbols)  # , verbose=True)
+    def new_hmm(self, random_transitions=False, random_emissions=False):
+        hmm = DiscreteHMM(self.nStates, self.nSymbols, random_transitions=random_transitions,
+                          random_emissions=random_emissions)  # , verbose=True)
         return hmm
 
     def to_ghmm(self, hmm):
@@ -86,11 +88,31 @@ class TestStandalone(DiscreteHMMTest):
         assert np.array_equal(viterbi_path, true_path)
 
     def test_training(self):
-        hmm = self.new_hmm()
-        hmm.setup_strict_left_to_right()
-        observations = [0, 1, 1, 2, 0]  # ,0,1,2,0,1,2]
+        from numpy.random import choice
+        observation_size = 100
+        hmm = self.new_hmm(random_transitions=True, random_emissions=True)
+        # hmm.setup_strict_left_to_right()
+        true_init_p = random_simplex(self.nStates)
+        true_states = [choice(range(self.nStates), p=true_init_p)]
+        true_trans_p = random_simplex(self.nStates, two_d=True)
+        for i in range(1, observation_size):
+            true_states.append(choice(range(self.nStates), p=true_trans_p[true_states[-1]]))
+        true_emission_p = [random_simplex(self.nStates) for _ in range(self.nStates)]
+        observations = [choice(range(self.nSymbols), p=true_emission_p[state]) for state in true_states]
+        text = \
+            """
+            True init probs:
+            {}
+            True emission probs:
+            {}
+            True trans probs:
+            {}
+            Observations ({}):
+            {}
+            """.format(true_init_p, true_emission_p, true_trans_p, observation_size, observations)
 
-        hmm.train(observations, iterations=1)
+        hmm.train(observations, iterations=10)
+        print text
 
         # def test_gamma(self):
         #     hmm = self.new_hmm()
@@ -104,16 +126,17 @@ class TestAgainstGhmm(DiscreteHMMTest):
     def test_forward_against_ghmm(self):
         from .util import ghmm_from_discrete_hmm
         import ghmm
-        hmm = self.new_hmm()
+        hmm = self.new_hmm(random_transitions=True)
         hmm_reference = ghmm_from_discrete_hmm(hmm)
-        seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 0, 0, 0])
-        forward = hmm.forward([0, 0, 0, 0])
+        observed = [0, 1, 2, 2]
+        seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
+        forward = hmm.forward(observed)
 
         # remember that we have to convert stuff from ghmm to log scale
         forward_reference, scale_reference = map(np.array, hmm_reference.forward(seq))
         forward_reference_log = np.log(forward_reference)
         print "Forward reference (scaled):\n", forward_reference
-
+        print "Scale reference: {}".format(scale_reference)
         for i, c in enumerate(scale_reference):
             forward_reference_log[i] += sum(np.log(scale_reference[:i + 1]))
         print "Forward reference (unscaled):\n", np.exp(forward_reference_log)
@@ -127,10 +150,11 @@ class TestAgainstGhmm(DiscreteHMMTest):
         import ghmm
         hmm = self.new_hmm()
         hmm_reference = ghmm_from_discrete_hmm(hmm)
-        seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, [0, 0, 0])
+        observed = [0, 1, 2, 2]
+        seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
 
         # remember that we have to convert stuff from ghmm to log scale
-        _, scale_reference = hmm_reference.forward(seq)
+        _, scale_reference = map(np.array, hmm_reference.forward(seq))
         # print "Forward referece", forward
         print "Scale reference", scale_reference
 
@@ -140,17 +164,18 @@ class TestAgainstGhmm(DiscreteHMMTest):
 
         # unscale the reference array
         # get the product of scale_t,scale_t+1,...,scale_T for each t.
-        coefficients = np.array([np.prod(scale_reference[i:]) for i, _ in enumerate(scale_reference)])
+        # coefficients = np.array([np.prod(scale_reference[i:]) for i, _ in enumerate(scale_reference)])
+        coefficients = np.array([np.multiply.reduce(scale_reference[t + 1:]) for t, _ in enumerate(scale_reference)])
         print "Reference coefficients:", coefficients
 
         # multiply each backwards_reference[i] by coefficients[i]
-        backward_reference[:] = np.multiply(backward_reference, coefficients).T
+        backward_reference[:] = (np.expand_dims(coefficients, axis=1) * backward_reference)
 
         # test shape
         print "Backward reference (unscaled)", backward_reference
 
         # this is our backward array, log transformed
-        backward = hmm.backward([0, 0, 0])
+        backward = hmm.backward(observed)
 
         print "Backward", np.exp(backward)
 
