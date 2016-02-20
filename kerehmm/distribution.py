@@ -39,6 +39,34 @@ class DiscreteDistribution(Distribution):
 
 
 class ContinuousDistribution(Distribution):
+    """
+    I am a gaussian distribution.
+
+    It is initialized to mean 0 across dimensions, and
+    the covariance is set to a scalar matrix with 1
+    across the diagonal.
+    >>> m = ContinuousDistribution(2)
+    >>> m.mean
+    array([ 0.,  0.])
+    >>> m.variance
+    array([[ 1.,  0.],
+           [ 0.,  1.]])
+
+    You can simply use bracket indexing to get the probability of
+    an observation. Note that all probabilities are in log scale.
+    >>> from scipy import stats
+    >>> m[(0, 0)] == stats.multivariate_normal(mean=m.mean, cov=m.variance).logpdf((0,0))
+    True
+
+    It also supports univariate gaussians.
+    >>> m = ContinuousDistribution(1)
+    >>> m.mean
+    0
+    >>> m.variance
+    1
+    >>> m[0] == stats.norm(loc=0, scale=1).logpdf(0)
+    True
+    """
     def __init__(self, dimensions, random=False):
         self.dimensions = dimensions
 
@@ -53,14 +81,14 @@ class ContinuousDistribution(Distribution):
 
         def variance():
             if random:
-                variances = np.empty((self.dimensions, self.dimensions))
+                variances = np.zeros((self.dimensions, self.dimensions))
                 np.fill_diagonal(variances, 1)
                 return variances
             else:
                 if self.dimensions == 1:
                     return 1
                 else:
-                    variances = np.empty((self.dimensions, self.dimensions))
+                    variances = np.zeros((self.dimensions, self.dimensions))
                     np.fill_diagonal(variances, 1)
                     return variances
 

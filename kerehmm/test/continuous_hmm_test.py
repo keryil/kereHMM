@@ -53,8 +53,8 @@ class TestGhmmConversion(ContinuousHMMTest):
         init = np.exp(hmm.initialProbabilities)
 
         trans_reference, emit_reference, init_reference = hmm_reference.asMatrices()
-        print "GHMM emission dist: \n{}".format(emit_reference)
-        print "Our emission dist: \n{}".format(emit)
+        # print "GHMM emission dist: \n{}".format(emit_reference)
+        # print "Our emission dist: \n{}".format(emit)
         assert np.array_equal(trans, trans_reference)
         assert np.array_equal(init, init_reference)
         assert np.array_equal(emit, emit_reference)
@@ -231,7 +231,7 @@ class TestStandalone(ContinuousHMMTest):
 class TestAgainstGhmm(ContinuousHMMTest):
     def test_forward_against_ghmm(self):
         import ghmm
-        hmm = self.new_hmm(random_transitions=True)
+        hmm = self.new_hmm(random_transitions=True, random_emissions=True)
         hmm_reference = ghmm_from_continuous_hmm(hmm)
         observed = [0, 1, 2, 2]
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
