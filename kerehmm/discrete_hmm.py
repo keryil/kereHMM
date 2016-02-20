@@ -28,6 +28,9 @@ class DiscreteHMM(AbstractHMM):
             sum = np.logaddexp.reduce(dist.probabilities)
             assert np.isclose(sum, np.log(1))
 
+    def emit(self):
+        return self.emissionDistributions[self.current_state].emit()
+
     def do_pass(self, observations, verbose=False):
         text = \
             """
@@ -46,7 +49,7 @@ class DiscreteHMM(AbstractHMM):
                               np.exp(self.initialProbabilities), np.sum(np.exp(self.initialProbabilities)),
                               np.exp(self.transitionMatrix), np.sum(np.exp(self.transitionMatrix), axis=1),
                               emit, np.sum(emit, axis=1))
-
+        # print "FORWARD PROB: {}".format(np.exp(self.forward_probability(observations)))
         # initial probabilities
         pi_new = np.zeros_like(self.initialProbabilities)
         # xi = np.zeros(shape=(len(observations), self.nStates, self.nStates))
@@ -127,14 +130,3 @@ class DiscreteHMM(AbstractHMM):
                               np.exp(self.initialProbabilities), sum(np.exp(self.initialProbabilities)),
                               np.exp(self.transitionMatrix), np.sum(np.exp(self.transitionMatrix), axis=1),
                               dists, np.sum(dists, axis=1))
-
-    def train(self, observations, iterations=5):
-        """
-        This is the training algorithm in Rabiner 1989
-        equations 40a, 40b and 40c.
-        :param observations:
-        :param iterations:
-        :return:
-        """
-        for i in range(iterations):
-            self.do_pass(observations, i % 100)

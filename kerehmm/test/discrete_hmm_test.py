@@ -91,22 +91,73 @@ class TestStandalone(DiscreteHMMTest):
         viterbi_path, viterbi_prob = hmm.viterbi_path(observations)
         assert np.array_equal(viterbi_path, true_path)
 
-    def test_training(self):
-        self.nStates = 2
-        self.nSymbols = 2
-        from numpy.random import choice
-        observation_size = 250
+    def test_training_from_simulation(self):
+        self.nStates = 3
+        self.nSymbols = 3
+        observation_size = 1000
 
         hmm = self.new_hmm(random_transitions=True, random_emissions=True)
         # hmm.setup_strict_left_to_right()
+        reference_hmm = self.new_hmm(random_emissions=True, random_transitions=True)
+        true_init_p = np.exp(reference_hmm.initialProbabilities)
+        true_trans_p = np.exp(reference_hmm.transitionMatrix)
+        true_emission_p = np.array(map(lambda x: np.exp(x.probabilities), reference_hmm.emissionDistributions))
+        true_states, observations = reference_hmm.simulate(iterations=observation_size)
+
+        text = \
+            """
+            True init probs:
+            {}
+            Diff:
+            {}: {}
+            True emission probs:
+            {}
+            Diff:
+            {}: {}
+            True trans probs:
+            {}
+            Diff:
+            {}: {}
+            Observations ({}):
+            {}
+                        """
+        print text.format(true_init_p, np.exp(hmm.initialProbabilities),
+                          np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
+                          true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
+                          np.sum(np.abs([p1 - np.exp(p2.probabilities) for p1, p2 in
+                                         zip(true_emission_p, hmm.emissionDistributions)])),
+                          true_trans_p, np.exp(hmm.transitionMatrix),
+                          np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
+                          observation_size, observations)
+
+        hmm.train(observations, iterations=500)
+        print text.format(true_init_p, np.exp(hmm.initialProbabilities),
+                          np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
+                          true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
+                          np.sum(np.abs([p1 - np.exp(p2.probabilities) for p1, p2 in
+                                         zip(true_emission_p, hmm.emissionDistributions)])),
+                          true_trans_p, np.exp(hmm.transitionMatrix),
+                          np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
+                          observation_size, observations)
+
+    def test_training(self):
+        self.nStates = 3
+        self.nSymbols = 2
+        from numpy.random import choice
+        observation_size = 1000
+
+        hmm = self.new_hmm(random_transitions=True)  # , random_emissions=True)
+        # hmm.setup_strict_left_to_right()
         true_init_p = random_simplex(self.nStates)
         true_states = [choice(range(self.nStates), p=true_init_p)]
-        true_trans_p = np.array([[.1, .9],
-                                 [.9, .1]])  # random_simplex(self.nStates, two_d=True)
+        true_trans_p = np.array([[.60, .30, .10],
+                                 [.10, .80, .10],
+                                 [.30, .10, .60]])  # random_simplex(self.nStates, two_d=True)
         for i in range(1, observation_size):
             true_states.append(choice(range(self.nStates), p=true_trans_p[true_states[-1]]))
-        true_emission_p = np.array([[.9, .1],
-                                    [.1, .9]])  #[random_simplex(self.nSymbols) for _ in range(self.nStates)]
+        true_emission_p = np.array([[.70, .30],
+                                    [.40, .60],
+                                    [.10, .90]])  # [random_simplex(self.nSymbols) for _ in range(self.nStates)]
         observations = [choice(range(self.nSymbols), p=true_emission_p[state]) for state in true_states]
 
         text = \
@@ -125,7 +176,7 @@ class TestStandalone(DiscreteHMMTest):
             {}: {}
             Observations ({}):
             {}
-            """
+                        """
         print text.format(true_init_p, np.exp(hmm.initialProbabilities),
                           np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
                           true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
@@ -135,7 +186,7 @@ class TestStandalone(DiscreteHMMTest):
                           np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
                           observation_size, observations)
 
-        hmm.train(observations, iterations=10)
+        hmm.train(observations, iterations=200)
         print text.format(true_init_p, np.exp(hmm.initialProbabilities),
                           np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
                           true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
@@ -144,12 +195,6 @@ class TestStandalone(DiscreteHMMTest):
                           true_trans_p, np.exp(hmm.transitionMatrix),
                           np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
                           observation_size, observations)
-
-        # def test_gamma(self):
-        #     hmm = self.new_hmm()
-        #     gamma = hmm.gamma(observations=range(self.nStates))
-        #     for row in gamma:
-        #         assert np.abs(1 - np.exp(np.logaddexp.reduce(row))) < .0000001
 
 
 class TestAgainstGhmm(DiscreteHMMTest):

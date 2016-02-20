@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.random import choice
 from scipy.stats import multivariate_normal
 
 from kerehmm.util import random_simplex
@@ -10,6 +11,13 @@ class Distribution(object):
 
     def __getitem__(self, item):
         return self.get_probability(item)
+
+    def emit(self):
+        """
+        Emits a randomly drawn output.
+        :return:
+        """
+        raise NotImplementedError()
 
 class DiscreteDistribution(Distribution):
     """
@@ -25,6 +33,9 @@ class DiscreteDistribution(Distribution):
 
     def get_probability(self, observation):
         return self.probabilities[observation]
+
+    def emit(self):
+        return choice(range(self.n), p=np.exp(self.probabilities))
 
 
 class GaussianMixture(Distribution):
@@ -50,3 +61,8 @@ class GaussianMixture(Distribution):
             running_sum = np.logaddexp(component + prob,
                                        running_sum)
         return running_sum
+
+    def emit(self):
+        mixture = choice(range(self.nmixtures), p=np.exp(self.weights))
+        dist = multivariate_normal()
+        return dist.rvs(mean=self.means[mixture], cov=self.variances[mixture])

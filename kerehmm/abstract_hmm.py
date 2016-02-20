@@ -1,6 +1,9 @@
-import numpy as np
+from collections import namedtuple
 
-from kerehmm.util import DELTA_P, random_simplex
+import numpy as np
+from numpy.random import choice
+
+from kerehmm.util import DELTA_P, random_simplex, CONVERGENCE_DELTA_LOG_LIKELIHOOD
 
 
 class AbstractHMM(object):
@@ -10,6 +13,7 @@ class AbstractHMM(object):
     """
 
     def __init__(self, number_of_states, state_labels=None, verbose=False, random_transitions=False):
+        self.current_state = None
         if state_labels is None:
             state_labels = ["State_%d" % i for i in range(number_of_states)]
         assert len(set(state_labels)) == number_of_states
@@ -304,3 +308,66 @@ class AbstractHMM(object):
                 probs[:] = -np.inf
                 probs[i] = 0
                 distribution.probabilities = probs
+
+    def do_pass(self, observations):
+        raise NotImplementedError()
+
+    def train(self, observations, iterations=None, auto_stop=True):
+        """
+        This is the training algorithm in Rabiner 1989
+        equations 40a, 40b and 40c.
+        :param observations:
+        :param iterations:
+        :return:
+        """
+        if auto_stop and not iterations:
+            i = 0
+            while True:
+                i += 1
+                old_f = self.forward_probability(observations)
+                if not (i % 100):
+                    print 'ITERATION #{}'.format(i)
+                    print 'Delta llk = {}'.format(delta_p)
+                self.do_pass(observations, not (i % 100))
+                if auto_stop:
+                    delta_p = self.forward_probability(observations) - old_f
+                    if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
+                        break
+        else:
+            for i in range(iterations):
+                old_f = self.forward_probability(observations)
+                self.do_pass(observations, not (i % 100))
+                if auto_stop:
+                    delta_p = self.forward_probability(observations) - old_f
+                    if not (i % 100):
+                        print 'ITERATION #{}'.format(i)
+                        print 'Delta llk = {}'.format(delta_p)
+                    if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
+                        break
+
+        print "Finished training at {} iterations.".format(i)
+        print "DELTA FORWARD LOG PROB AFTER TRAINING:", delta_p
+        print "{} --> {}".format(np.exp(old_f), np.exp(self.forward_probability(observations)))
+        # print delta_p / np.exp(old_f)
+
+    def emit(self):
+        raise NotImplementedError()
+
+    def transition(self):
+        if self.current_state:
+            self.current_state = choice(range(self.nStates), p=np.exp(self.transitionMatrix[self.current_state,]))
+        else:
+            self.current_state = choice(range(self.nStates), p=np.exp(self.initialProbabilities))
+
+    def simulate(self, iterations=1, reset=True):
+        emissions = []
+        states = []
+        if reset:
+            self.current_state = None
+
+        for i in range(iterations):
+            self.transition()
+            states.append(self.current_state)
+            emissions.append(self.emit())
+
+        return namedtuple("SimulationResult", ['states', 'emissions'])(states=states, emissions=emissions)

@@ -43,3 +43,6 @@ def random_simplex(size, two_d=False):
         arr = np.random.uniform(low=DELTA_P, high=1, size=size)
         arr /= np.sum(arr)
     return arr
+
+
+CONVERGENCE_DELTA_LOG_LIKELIHOOD = 1e-05
