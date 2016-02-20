@@ -23,9 +23,9 @@ def ghmm_from_continuous_hmm(hmm):
     trans = np.exp(hmm.transitionMatrix).tolist()
     init = np.exp(hmm.initialProbabilities).tolist()
     emissions = [map(float, [d.mean, d.variance]) for d in hmm.emissionDistributions]
-    print init
-    print trans
-    print emissions
+    # print init
+    # print trans
+    # print emissions
     return ghmm.HMMFromMatrices(emissionDomain=domain,
                                 distribution=ghmm.GaussianDistribution(domain),
                                 A=trans,
@@ -39,9 +39,9 @@ def ghmm_from_multivariate_continuous_hmm(hmm):
     trans = np.exp(hmm.transitionMatrix).tolist()
     init = np.exp(hmm.initialProbabilities).tolist()
     emissions = [[d.mean.tolist(), d.variance.flatten().tolist()] for d in hmm.emissionDistributions]
-    print init
-    print trans
-    print emissions
+    # print init
+    # print trans
+    # print emissions
     return ghmm.HMMFromMatrices(emissionDomain=domain,
                                 distribution=ghmm.MultivariateGaussianDistribution(domain),
                                 A=trans,

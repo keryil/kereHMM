@@ -75,7 +75,7 @@ class ContinuousDistribution(Distribution):
     True
     """
 
-    def __init__(self, dimensions, random=False, lower_bounds=None, upper_bounds=None):
+    def __init__(self, dimensions, random=False, lower_bounds=0, upper_bounds=100):
         self.dimensions = dimensions
 
         def mean():
@@ -88,17 +88,12 @@ class ContinuousDistribution(Distribution):
                     return np.zeros(shape=(self.dimensions,))
 
         def variance():
-            if random:
+            if self.dimensions == 1:
+                return 1
+            else:
                 variances = np.zeros((self.dimensions, self.dimensions))
                 np.fill_diagonal(variances, 1)
                 return variances
-            else:
-                if self.dimensions == 1:
-                    return 1
-                else:
-                    variances = np.zeros((self.dimensions, self.dimensions))
-                    np.fill_diagonal(variances, 1)
-                    return variances
 
         self.mean = mean()
         self.variance = variance()
@@ -115,6 +110,16 @@ class ContinuousDistribution(Distribution):
         else:
             dist = norm(loc=self.mean, scale=self.variance)
         return dist.rvs()
+
+    def __str__(self):
+        string = \
+            """
+            Gaussian(ndim={}, mean={}, covar={})
+            """.format(self.dimensions, self.mean, self.variance)
+        return string
+
+    def __repr__(self):
+        return self.__str__()
 
 class GaussianMixture(Distribution):
     """

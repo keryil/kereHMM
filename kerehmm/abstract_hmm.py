@@ -12,7 +12,8 @@ class AbstractHMM(object):
     by all other HMM classes. It defines a generic HMM.
     """
 
-    def __init__(self, number_of_states, state_labels=None, verbose=False, random_transitions=False):
+    def __init__(self, number_of_states, state_labels=None, verbose=False, random_transitions=False,
+                 *args, **kwargs):
         self.current_state = None
         if state_labels is None:
             state_labels = ["State_%d" % i for i in range(number_of_states)]
@@ -152,6 +153,8 @@ class AbstractHMM(object):
         # alpha[time, state]
         alpha = np.empty(shape=(len(observations), self.nStates))
         initial_emissions = self.emission_probability(state=None, observation=observations[0])
+        print "Initial emission probs: {}".format(np.exp(initial_emissions))
+        print "Initial state probs: {}".format(np.exp(self.initialProbabilities))
         alpha[0,] = self.initialProbabilities + initial_emissions
         # scaling_parameters = np.empty(shape=len(observations))
 
@@ -278,7 +281,10 @@ class AbstractHMM(object):
         :return:
         """
         if state is None:
-            return np.array([self.emissionDistributions[s][observation] for s in range(self.nStates)])
+            # print "Emission dists: {}".format(self.emissionDistributions)
+            # print "Observation: {}".format(observation)
+            # print "Prob: {}".format(np.exp(self.emissionDistributions[0][observation]))
+            return np.array([float(self.emissionDistributions[s][observation]) for s in range(self.nStates)])
         return self.emissionDistributions[state][observation]
 
     def setup_strict_left_to_right(self, set_emissions=False):
