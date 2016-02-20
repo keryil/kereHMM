@@ -66,13 +66,21 @@ class ContinuousDistribution(Distribution):
     1
     >>> m[0] == stats.norm(loc=0, scale=1).logpdf(0)
     True
+
+    You can also randomize the means upon initialization by passing random=True.
+    Optionally, you can also pass lower_bounds=[..] and upper_bounds[..] to specify
+    boundaries of each dimension when initializing the distribution.
+    >>> m = ContinuousDistribution(2, random=True, lower_bounds=[1,1], upper_bounds=[2,2])
+    >>> all([1 <= d <= 2 for d in m.mean])
+    True
     """
-    def __init__(self, dimensions, random=False):
+
+    def __init__(self, dimensions, random=False, lower_bounds=None, upper_bounds=None):
         self.dimensions = dimensions
 
         def mean():
             if random:
-                return np.random.uniform(-10, 10, size=self.dimensions)
+                return np.random.uniform(lower_bounds, upper_bounds, size=self.dimensions)
             else:
                 if self.dimensions == 1:
                     return 0
