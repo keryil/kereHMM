@@ -38,14 +38,14 @@ class DiscreteDistribution(Distribution):
         return choice(range(self.n), p=np.exp(self.probabilities))
 
 
-class ContinuousDistribution(Distribution):
+class GaussianDistribution(Distribution):
     """
     I am a gaussian distribution.
 
     It is initialized to mean 0 across dimensions, and
     the covariance is set to a scalar matrix with 1
     across the diagonal.
-    >>> m = ContinuousDistribution(2)
+    >>> m = GaussianDistribution(2)
     >>> m.mean
     array([ 0.,  0.])
     >>> m.variance
@@ -59,7 +59,7 @@ class ContinuousDistribution(Distribution):
     True
 
     It also supports univariate gaussians.
-    >>> m = ContinuousDistribution(1)
+    >>> m = GaussianDistribution(1)
     >>> m.mean
     0
     >>> m.variance
@@ -70,33 +70,50 @@ class ContinuousDistribution(Distribution):
     You can also randomize the means upon initialization by passing random=True.
     Optionally, you can also pass lower_bounds=[..] and upper_bounds[..] to specify
     boundaries of each dimension when initializing the distribution.
-    >>> m = ContinuousDistribution(2, random=True, lower_bounds=[1,1], upper_bounds=[2,2])
+    >>> m = GaussianDistribution(2, random=True, lower_bounds=[1,1], upper_bounds=[2,2])
     >>> all([1 <= d <= 2 for d in m.mean])
     True
     """
 
-    def __init__(self, dimensions, random=False, lower_bounds=0, upper_bounds=100):
+    def __init__(self, dimensions, random=False, lower_bounds=0, upper_bounds=100,
+                 mean=None, variance=None):
         self.dimensions = dimensions
 
-        def mean():
+        def mean_():
             if random:
-                return np.random.uniform(lower_bounds, upper_bounds, size=self.dimensions)
-            else:
-                if self.dimensions == 1:
-                    return 0
+                if dimensions == 1:
+                    return np.random.uniform(lower_bounds, upper_bounds, size=self.dimensions)[0]
                 else:
-                    return np.zeros(shape=(self.dimensions,))
+                    return np.random.uniform(lower_bounds, upper_bounds, size=self.dimensions)
+            else:
+                if mean is not None:
+                    try:
+                        if dimensions != 1:
+                            assert mean.shape == (self.dimensions,)
+                        return mean
+                    except AssertionError:
+                        raise ValueError("Mean has invalid shape: \nmean\t=\t{}".format(mean))
+                else:
+                    if self.dimensions == 1:
+                        return 0
+                    else:
+                        return np.zeros(shape=(self.dimensions,))
 
-        def variance():
+        def variance_():
+            if variance is not None:
+                return variance
             if self.dimensions == 1:
-                return 1
+                if random:
+                    return np.random.random()
+                else:
+                    return 1
             else:
                 variances = np.zeros((self.dimensions, self.dimensions))
                 np.fill_diagonal(variances, 1)
                 return variances
 
-        self.mean = mean()
-        self.variance = variance()
+        self.mean = mean_()
+        self.variance = variance_()
 
     def get_probability(self, observation, *args, **kwargs):
         if self.dimensions != 1:
@@ -106,10 +123,9 @@ class ContinuousDistribution(Distribution):
 
     def emit(self):
         if self.dimensions != 1:
-            dist = multivariate_normal(mean=self.mean, cov=self.variance)
+            return multivariate_normal(mean=self.mean, cov=self.variance).rvs()
         else:
-            dist = norm(loc=self.mean, scale=self.variance)
-        return dist.rvs()
+            return norm(loc=self.mean, scale=self.variance).rvs()
 
     def __str__(self):
         string = \

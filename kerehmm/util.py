@@ -20,12 +20,13 @@ def normalize(a):
     return a
 
 
-def random_simplex(size, two_d=False):
+def random_simplex(size, two_d=False, log_scale=False):
     """
     Returns a random simplex of given shape
     :param shape:
     :return:
     """
+    arr = None
     if two_d:
         def new():
             a = np.random.uniform(low=.1, high=1. / size, size=(size, size))
@@ -42,7 +43,7 @@ def random_simplex(size, two_d=False):
     else:
         arr = np.random.uniform(low=DELTA_P, high=1, size=size)
         arr /= np.sum(arr)
-    return arr
+    return arr if not log_scale else np.log(arr)
 
 
-CONVERGENCE_DELTA_LOG_LIKELIHOOD = 1e-05
+CONVERGENCE_DELTA_LOG_LIKELIHOOD = 1e-03

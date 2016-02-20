@@ -32,11 +32,16 @@ class AbstractHMM(object):
         self.stateLabels = state_labels
         self.verbose = verbose
 
-    def sanity_check(self, normalize=False):
+    def sanity_check(self, sanitize=False, verbose=None):
         """
         Checks if the parameters are in range, and if the distributions provided are true probability distributions.
+        If @sanitize=True, the method attempts to sanitize improper parameters.
         :return:
         """
+        _tmp_verbose = self.verbose
+        if verbose is not None:
+            self.verbose = verbose
+
         assert np.isclose(np.logaddexp.reduce(self.initialProbabilities), np.log(1))
         if self.verbose:
             print "SANITY CHECK: transmat\n{}".format(np.exp(self.transitionMatrix))
@@ -44,19 +49,18 @@ class AbstractHMM(object):
             sum1 = np.logaddexp.reduce(self.transitionMatrix[row])
             sum2 = np.logaddexp.reduce(self.transitionMatrix[:, column])
             if self.verbose:
-                print "SANITY CHECK #{}: Row sum: {}, Column sum: {}".format(row, sum1, sum2)
+                print "SANITY CHECK #{}: Row sum: {}, Column sum: {}".format(row, np.exp(sum1), np.exp(sum2))
             try:
                 assert np.isclose(sum1, np.log(1))
             except AssertionError, e:
-                print "Offending row: {}".format(row)
-                raise e
-
-                # try:
-                #     assert np.isclose(sum2, np.log(1))
-                # except AssertionError, e:
-                #     print "Offending column: {}\nOffending sum: {}".format(column, np.exp(sum2))
-                #     print np.exp(self.transitionMatrix.T[column])
-                #     raise e
+                print "Offending row: {} (sums up to {})".format(np.exp(self.transitionMatrix[row]),
+                                                                 np.sum(np.exp(self.transitionMatrix[row])))
+                if not sanitize:
+                    raise e
+                else:
+                    self.transitionMatrix -= np.logaddexp.reduce(self.transitionMatrix, axis=1)[:, np.newaxis]
+                    print "Corrected to: {}".format(np.exp(self.transitionMatrix[row]))
+        self.verbose = _tmp_verbose
 
     def transition_probability(self, origin, destination):
         """
@@ -318,7 +322,7 @@ class AbstractHMM(object):
     def do_pass(self, observations):
         raise NotImplementedError()
 
-    def train(self, observations, iterations=None, auto_stop=True):
+    def train(self, observations, iterations=None, auto_stop=True, verbose=False):
         """
         This is the training algorithm in Rabiner 1989
         equations 40a, 40b and 40c.
@@ -343,7 +347,7 @@ class AbstractHMM(object):
         else:
             for i in range(iterations + 1):
                 old_f = self.forward_probability(observations)
-                self.do_pass(observations, False)
+                self.do_pass(observations, verbose)
                 if auto_stop:
                     delta_p = self.forward_probability(observations) - old_f
                     # if not (i % 100):
@@ -359,7 +363,7 @@ class AbstractHMM(object):
         # print delta_p / np.exp(old_f)
 
     def emit(self):
-        raise NotImplementedError()
+        return self.emissionDistributions[self.current_state].emit()
 
     def transition(self):
         if self.current_state:

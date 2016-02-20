@@ -28,9 +28,6 @@ class DiscreteHMM(AbstractHMM):
             sum = np.logaddexp.reduce(dist.probabilities)
             assert np.isclose(sum, np.log(1))
 
-    def emit(self):
-        return self.emissionDistributions[self.current_state].emit()
-
     def do_pass(self, observations, verbose=False):
         text = \
             """
