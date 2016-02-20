@@ -157,8 +157,8 @@ class AbstractHMM(object):
         # alpha[time, state]
         alpha = np.empty(shape=(len(observations), self.nStates))
         initial_emissions = self.emission_probability(state=None, observation=observations[0])
-        print "Initial emission probs: {}".format(np.exp(initial_emissions))
-        print "Initial state probs: {}".format(np.exp(self.initialProbabilities))
+        # print "Initial emission probs: {}".format(np.exp(initial_emissions))
+        # print "Initial state probs: {}".format(np.exp(self.initialProbabilities))
         alpha[0,] = self.initialProbabilities + initial_emissions
         # scaling_parameters = np.empty(shape=len(observations))
 
@@ -267,6 +267,7 @@ class AbstractHMM(object):
             # print beta
             for i in range(self.nStates):
                 transitions = np.empty(shape=self.nStates)
+                # print "Emission probs in forward():", np.exp(self.emission_probability(None, observations[t + 1]))
                 transitions[:] = self.transitionMatrix[i, :] + \
                                  self.emission_probability(None,
                                                            observations[t + 1])
