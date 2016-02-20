@@ -1,10 +1,10 @@
 import numpy as np
 
 from kerehmm.gaussian_hmm import GaussianHMM
-from kerehmm.test.util import ghmm_from_continuous_hmm, ghmm_from_multivariate_continuous_hmm
+from kerehmm.test.util import ghmm_from_gaussian_hmm, ghmm_from_multivariate_continuous_hmm
 
 
-class ContinuousHMMTest(object):
+class GaussianHMMTest(object):
     nStates = 3
     nDimensions = 1
 
@@ -21,12 +21,12 @@ class ContinuousHMMTest(object):
 
     def to_ghmm(self, hmm):
         if self.nDimensions == 1:
-            return ghmm_from_continuous_hmm(hmm)
+            return ghmm_from_gaussian_hmm(hmm)
         else:
             return ghmm_from_multivariate_continuous_hmm(hmm)
 
 
-class TestGhmmConversion(ContinuousHMMTest):
+class TestGhmmConversion(GaussianHMMTest):
     def test_univariate_parameters(self):
         hmm = self.new_hmm()
         hmm_reference = self.to_ghmm(hmm)
@@ -60,7 +60,7 @@ class TestGhmmConversion(ContinuousHMMTest):
         assert np.array_equal(emit, emit_reference)
 
 
-class TestStandalone(ContinuousHMMTest):
+class TestStandalone(GaussianHMMTest):
     def test_random_init(self):
         for i in range(1000):
             self.new_hmm(random_transitions=True, random_emissions=True).sanity_check()
@@ -228,12 +228,12 @@ class TestStandalone(ContinuousHMMTest):
 #                           observation_size, observations)
 #
 #
-class TestAgainstGhmm(ContinuousHMMTest):
+class TestAgainstGhmm(GaussianHMMTest):
     def test_forward_against_ghmm(self):
         import ghmm
         hmm = self.new_hmm(nDimensions=1, random_transitions=True, random_emissions=True,
                            upper_bounds=[10], lower_bounds=[0])
-        hmm_reference = ghmm_from_continuous_hmm(hmm)
+        hmm_reference = ghmm_from_gaussian_hmm(hmm)
         observed = [0, 1, 2, 2]
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
         forward = hmm.forward(observed)
@@ -253,11 +253,11 @@ class TestAgainstGhmm(ContinuousHMMTest):
 
 #
     def test_backward_against_ghmm(self):
-        from kerehmm.test.util import ghmm_from_continuous_hmm
+        from kerehmm.test.util import ghmm_from_gaussian_hmm
         import ghmm
         hmm = self.new_hmm(nDimensions=1, random_emissions=True, random_transitions=True,
                            lower_bounds=[0], upper_bounds=[10])
-        hmm_reference = ghmm_from_continuous_hmm(hmm)
+        hmm_reference = ghmm_from_gaussian_hmm(hmm)
         observation_size = 5
         observed = [np.random.randint(0, 10) for _ in range(self.nDimensions) for i in range(observation_size)]
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, np.array(observed).flatten().tolist())

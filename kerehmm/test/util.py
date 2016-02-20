@@ -17,7 +17,7 @@ def ghmm_from_discrete_hmm(hmm):
                                 pi=init)
 
 
-def ghmm_from_continuous_hmm(hmm):
+def ghmm_from_gaussian_hmm(hmm):
     hmm = deepcopy(hmm)
     domain = ghmm.Float()
     trans = np.exp(hmm.transitionMatrix).tolist()
