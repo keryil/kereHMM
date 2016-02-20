@@ -7,13 +7,13 @@ from kerehmm.abstract_hmm import AbstractHMM
 from kerehmm.distribution import ContinuousDistribution
 
 
-class ContinuousHMM(AbstractHMM):
+class GaussianHMM(AbstractHMM):
     """
     I am an HMM with continuous Gaussian emission distributions.
     """
 
     def __init__(self, number_of_states, dimensions, random_emissions=False, state_labels=None, *args, **kwargs):
-        super(ContinuousHMM, self).__init__(number_of_states, state_labels, *args, **kwargs)
+        super(GaussianHMM, self).__init__(number_of_states, state_labels, *args, **kwargs)
         if random_emissions:
             if "upper_bounds" not in kwargs:
                 kwargs['upper_bounds'] = [100 for _ in range(dimensions)]

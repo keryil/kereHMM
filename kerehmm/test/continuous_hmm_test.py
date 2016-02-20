@@ -1,6 +1,6 @@
 import numpy as np
 
-from kerehmm.continuous_hmm import ContinuousHMM
+from kerehmm.gaussian_hmm import GaussianHMM
 from kerehmm.test.util import ghmm_from_continuous_hmm, ghmm_from_multivariate_continuous_hmm
 
 
@@ -15,8 +15,8 @@ class ContinuousHMMTest(object):
         if nStates:
             self.nStates = nStates
 
-        hmm = ContinuousHMM(self.nStates, self.nDimensions, random_transitions=random_transitions,
-                            random_emissions=random_emissions, *args, **kwargs)  # , verbose=True)
+        hmm = GaussianHMM(self.nStates, self.nDimensions, random_transitions=random_transitions,
+                          random_emissions=random_emissions, *args, **kwargs)  # , verbose=True)
         return hmm
 
     def to_ghmm(self, hmm):
