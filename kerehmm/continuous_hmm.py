@@ -14,14 +14,17 @@ class ContinuousHMM(AbstractHMM):
 
     def __init__(self, number_of_states, dimensions, random_emissions=False, state_labels=None, *args, **kwargs):
         super(ContinuousHMM, self).__init__(number_of_states, state_labels, *args, **kwargs)
-        if "upper_bounds" not in kwargs:
-            kwargs['upper_bounds'] = [100 for _ in range(dimensions)]
-        if "lower_bounds" not in kwargs:
-            kwargs['lower_bounds'] = [0 for _ in range(dimensions)]
-        self.emissionDistributions = [ContinuousDistribution(dimensions, random=random_emissions,
-                                                             upper_bounds=kwargs['upper_bounds'],
-                                                             lower_bounds=kwargs['lower_bounds']) for _ in
-                                      range(self.nStates)]
+        if random_emissions:
+            if "upper_bounds" not in kwargs:
+                kwargs['upper_bounds'] = [100 for _ in range(dimensions)]
+            if "lower_bounds" not in kwargs:
+                kwargs['lower_bounds'] = [0 for _ in range(dimensions)]
+            self.emissionDistributions = [ContinuousDistribution(dimensions, random=random_emissions,
+                                                                 upper_bounds=kwargs['upper_bounds'],
+                                                                 lower_bounds=kwargs['lower_bounds'])
+                                          for _ in range(self.nStates)]
+        else:
+            self.emissionDistributions = [ContinuousDistribution(dimensions) for _ in range(self.nStates)]
 
     def do_pass(self, observations, verbose=False):
         text = \
