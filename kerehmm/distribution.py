@@ -104,7 +104,8 @@ class GaussianDistribution(Distribution):
                 return variance
             if self.dimensions == 1:
                 if random:
-                    return np.random.random()
+                    return 1
+                    # return np.random.random()
                 else:
                     return 1
             else:
