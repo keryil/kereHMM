@@ -325,23 +325,25 @@ class AbstractHMM(object):
             while True:
                 i += 1
                 old_f = self.forward_probability(observations)
+                self.do_pass(observations, not (i % 100))
                 if not (i % 100):
                     print 'ITERATION #{}'.format(i)
+                    print 'Log likelihood = {}'.format(old_f)
                     print 'Delta llk = {}'.format(delta_p)
-                self.do_pass(observations, not (i % 100))
                 if auto_stop:
                     delta_p = self.forward_probability(observations) - old_f
                     if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
                         break
         else:
-            for i in range(iterations):
+            for i in range(iterations + 1):
                 old_f = self.forward_probability(observations)
-                self.do_pass(observations, not (i % 100))
+                self.do_pass(observations, False)
                 if auto_stop:
                     delta_p = self.forward_probability(observations) - old_f
-                    if not (i % 100):
-                        print 'ITERATION #{}'.format(i)
-                        print 'Delta llk = {}'.format(delta_p)
+                    # if not (i % 100):
+                    print 'ITERATION #{}'.format(i)
+                    print 'Log likelihood = {}'.format(old_f)
+                    print 'Delta llk = {}'.format(delta_p)
                     if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
                         break
 
