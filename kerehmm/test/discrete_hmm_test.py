@@ -152,7 +152,7 @@ class TestStandalone(DiscreteHMMTest):
         from numpy.random import choice
         observation_size = 1000
 
-        hmm = self.new_hmm(random_transitions=True)  # , random_emissions=True)
+        hmm = self.new_hmm(random_transitions=True, random_emissions=True)
         # hmm.setup_strict_left_to_right()
         true_init_p = random_simplex(self.nStates)
         true_states = [choice(range(self.nStates), p=true_init_p)]
@@ -170,36 +170,28 @@ class TestStandalone(DiscreteHMMTest):
             """
             True init probs:
             {}
-            Diff:
-            {}: {}
+            Ours:
+            {}
             True emission probs:
             {}
-            Diff:
-            {}: {}
+            Ours:
+            {}
             True trans probs:
             {}
-            Diff:
-            {}: {}
+            Ours:
+            {}
             Observations ({}):
             {}
                         """
-        print text.format(true_init_p, np.exp(hmm.initialProbabilities),
-                          np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
-                          true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
-                          np.sum(np.abs([p1 - np.exp(p2.probabilities) for p1, p2 in
-                                         zip(true_emission_p, hmm.emissionDistributions)])),
-                          true_trans_p, np.exp(hmm.transitionMatrix),
-                          np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
+        print text.format(true_init_p, hmm.initialProbabilities,
+                          true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
+                          true_trans_p, hmm.transitionMatrix,
                           observation_size, observations)
 
         hmm.train(observations, iterations=200)
-        print text.format(true_init_p, np.exp(hmm.initialProbabilities),
-                          np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
-                          true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
-                          np.sum(np.abs([p1 - np.exp(p2.probabilities) for p1, p2 in
-                                         zip(true_emission_p, hmm.emissionDistributions)])),
-                          true_trans_p, np.exp(hmm.transitionMatrix),
-                          np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
+        print text.format(true_init_p, hmm.initialProbabilities,
+                          true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
+                          true_trans_p, hmm.transitionMatrix,
                           observation_size, observations)
 
 

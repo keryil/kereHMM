@@ -39,18 +39,18 @@ class DiscreteHMM(AbstractHMM):
                 emission: {} = {}
             --------------------------<>
             """
-        emit = map(lambda x: np.exp(x.probabilities), self.emissionDistributions)
+        emit = map(lambda x: x.probabilities, self.emissionDistributions)
         if verbose:
             print text.format(observations,
-                              np.exp(self.initialProbabilities), np.sum(np.exp(self.initialProbabilities)),
-                              np.exp(self.transitionMatrix), np.sum(np.exp(self.transitionMatrix), axis=1),
+                              self.initialProbabilities, np.sum(self.initialProbabilities),
+                              self.transitionMatrix, np.sum(self.transitionMatrix, axis=1),
                               emit, np.sum(emit, axis=1))
         # print "FORWARD PROB: {}".format(np.exp(self.forward_probability(observations)))
         # initial probabilities
         pi_new = np.zeros_like(self.initialProbabilities)
         # xi = np.zeros(shape=(len(observations), self.nStates, self.nStates))
-        alpha = self.forward(observations)
-        beta = self.backward(observations)
+        alpha, scale = self.forward(observations)
+        beta = self.backward(observations, scale_coefficients=scale)
         xi = self.xi(observations=observations, alpha=alpha, beta=beta)
         # gamma = np.zeros(shape=(len(observations), self.nStates))  # self.gamma2(observations=observations)
         gamma = self.gamma(alpha, beta)
@@ -70,16 +70,16 @@ class DiscreteHMM(AbstractHMM):
 
         new_dists = deepcopy(self.emissionDistributions)
         for state, dist in enumerate(new_dists):
-            denominator = np.logaddexp.reduce(gamma[:, state])
+            denominator = gamma[:, state].sum()
             for symbol in range(self.alphabetSize):
                 nominator = gamma[np.array(observations) == symbol, state]
                 if len(nominator):
-                    nominator = np.logaddexp.reduce(gamma[np.array(observations) == symbol, state])
+                    nominator = (gamma[np.array(observations) == symbol, state].sum())
                 else:
-                    nominator = np.log(DELTA_P)
-                    denominator = np.logaddexp(np.log(DELTA_P), denominator)
+                    nominator = DELTA_P
+                    denominator += DELTA_P
                 dist.probabilities[symbol] = nominator
-            dist.probabilities -= denominator
+            dist.probabilities /= denominator
         # print "New emission distributions: {}".format(map(lambda x: np.exp(x.probabilities), new_dists))
 
         # transition matrix
@@ -89,17 +89,14 @@ class DiscreteHMM(AbstractHMM):
         # local_xi = xi[:T - 1]
         # local_gamma = gamma[:T - 1]
         for from_, to in product(range(self.nStates), range(self.nStates)):
-            sum_xi = -np.inf
-            sum_gamma = -np.inf
-            for t in range(T - 1):
-                # print "State{} --> State{}".format(from_, to)
-                sum_xi = np.logaddexp(sum_xi, xi[t, from_, to])
-                sum_gamma = np.logaddexp(sum_gamma, gamma[t, from_])
-            trans_new[from_, to] = sum_xi - sum_gamma
+            sum_xi = xi[:T - 1, from_, to].sum()
+            sum_gamma = gamma[:T - 1, from_].sum()
+            trans_new[from_, to] = sum_xi / sum_gamma
+        trans_new /= np.expand_dims(trans_new.sum(axis=1), axis=-1)
 
         for i, row in enumerate(trans_new):
             if verbose:
-                print "Row sum:", np.exp(np.logaddexp.reduce(row))
+                print "Row sum:", row.sum()
 
         # print "New transition matrix:", np.exp(trans_new)
         self.initialProbabilities = pi_new
@@ -120,9 +117,9 @@ class DiscreteHMM(AbstractHMM):
                 emission: {} = {}
             --------------------------<>
             """
-        dists = map(lambda x: np.exp(x.probabilities), self.emissionDistributions)
+        dists = map(lambda x: x.probabilities, self.emissionDistributions)
         if verbose:
             print text.format(observations,
-                              np.exp(self.initialProbabilities), sum(np.exp(self.initialProbabilities)),
-                              np.exp(self.transitionMatrix), np.sum(np.exp(self.transitionMatrix), axis=1),
+                              self.initialProbabilities, self.initialProbabilities.sum(),
+                              self.transitionMatrix, self.transitionMatrix.sum(axis=1),
                               dists, np.sum(dists, axis=1))

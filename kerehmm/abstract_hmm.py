@@ -53,6 +53,7 @@ class AbstractHMM(object):
             try:
                 assert np.isclose(sum1, 1)
             except AssertionError, e:
+                print "Problem in matrix:\n{}".format(self.transitionMatrix)
                 print "Offending row: {} (sums up to {})".format(self.transitionMatrix[row],
                                                                  self.transitionMatrix[row].sum())
                 if not sanitize:
@@ -147,11 +148,11 @@ class AbstractHMM(object):
     def forward_probability(self, observations):
         """
         This solves the problem 1 in Rabiner 1989, i.e.
-        P(O|Model), equations 19, 20 and 21.
+        log(P(O|Model)), equation 103.
         :param observations:
         :return:
         """
-        return self.forward(observations)[-1,].sum()
+        return -np.logaddexp.reduce(self.forward(observations)[-1])
 
     def forward(self, observations):
         # alpha[time, state]
@@ -198,7 +199,7 @@ class AbstractHMM(object):
         gamma = alpha * beta / np.expand_dims((alpha * beta).sum(axis=-1), axis=1)
         return gamma
 
-    def xi(self, observations, alpha=None, beta=None):
+    def xi(self, observations, alpha=None, beta=None, scale=None):
         """
         Equation 37 from Rabiner 1989. Utilised for training.
         :param observations:
@@ -207,9 +208,9 @@ class AbstractHMM(object):
         from itertools import product
         xi = np.empty(shape=(len(observations) - 1, self.nStates, self.nStates))
         if alpha is not None:
-            alpha = self.forward(observations)
+            alpha, scale = self.forward(observations)
         if beta is not None:
-            beta = self.backward(observations)
+            beta = self.backward(observations, scale_coefficients=scale)
 
         for t, _ in enumerate(observations[:-1]):
             # running_sum = 0
@@ -332,7 +333,7 @@ class AbstractHMM(object):
 
         print "Finished training at {} iterations.".format(i)
         print "DELTA FORWARD LOG PROB AFTER TRAINING:", delta_p
-        print "{} --> {}".format(np.exp(old_f), np.exp(self.forward_probability(observations)))
+        print "{} --> {}".format(old_f, self.forward_probability(observations))
         # print delta_p / np.exp(old_f)
 
     def emit(self):
