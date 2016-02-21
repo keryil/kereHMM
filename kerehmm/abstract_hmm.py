@@ -22,11 +22,11 @@ class AbstractHMM(object):
         self.transitionMatrix = np.empty((self.nStates, self.nStates))
         self.initialProbabilities = np.empty(shape=self.nStates)
         if not random_transitions:
-            self.transitionMatrix.fill(np.log(1. / self.nStates))
-            self.initialProbabilities.fill(np.log(1. / self.nStates))
+            self.transitionMatrix.fill(1. / self.nStates)
+            self.initialProbabilities.fill(1. / self.nStates)
         else:
-            self.transitionMatrix = np.log(random_simplex(self.nStates, two_d=True))
-            self.initialProbabilities = np.log(random_simplex(self.nStates))
+            self.transitionMatrix = random_simplex(self.nStates, two_d=True)
+            self.initialProbabilities = random_simplex(self.nStates)
 
         self.emissionDistributions = np.array([None for _ in range(self.nStates)], dtype=object)
         self.stateLabels = state_labels
@@ -42,23 +42,23 @@ class AbstractHMM(object):
         if verbose is not None:
             self.verbose = verbose
 
-        assert np.isclose(np.logaddexp.reduce(self.initialProbabilities), np.log(1))
+        assert np.isclose(self.initialProbabilities.sum(), 1)
         if self.verbose:
-            print "SANITY CHECK: transmat\n{}".format(np.exp(self.transitionMatrix))
-        for (row, _), (column, _) in zip(enumerate(self.transitionMatrix), enumerate(self.transitionMatrix.T)):
-            sum1 = np.logaddexp.reduce(self.transitionMatrix[row])
-            sum2 = np.logaddexp.reduce(self.transitionMatrix[:, column])
+            print "SANITY CHECK: transmat\n{}".format(self.transitionMatrix)
+        for row, column in zip(range(self.nStates), range(self.nStates)):
+            sum1 = self.transitionMatrix[row].sum()
+            sum2 = self.transitionMatrix[:, column].sum()
             if self.verbose:
-                print "SANITY CHECK #{}: Row sum: {}, Column sum: {}".format(row, np.exp(sum1), np.exp(sum2))
+                print "SANITY CHECK #{}: Row sum: {}, Column sum: {}".format(row, sum1, sum2)
             try:
-                assert np.isclose(sum1, np.log(1))
+                assert np.isclose(sum1, 1)
             except AssertionError, e:
-                print "Offending row: {} (sums up to {})".format(np.exp(self.transitionMatrix[row]),
-                                                                 np.sum(np.exp(self.transitionMatrix[row])))
+                print "Offending row: {} (sums up to {})".format(self.transitionMatrix[row],
+                                                                 self.transitionMatrix[row].sum())
                 if not sanitize:
                     raise e
                 else:
-                    self.transitionMatrix -= np.logaddexp.reduce(self.transitionMatrix, axis=1)[:, np.newaxis]
+                    self.transitionMatrix /= self.transitionMatrix.sum(axis=1)[:, np.newaxis]
                     print "Corrected to: {}".format(np.exp(self.transitionMatrix[row]))
         self.verbose = _tmp_verbose
 
