@@ -122,7 +122,7 @@ class AbstractHMM(object):
         psi = np.empty(shape=(len(observations), self.nStates))
 
         initial_emissions = np.array([d[observations[0]] for d in self.emissionDistributions])
-        delta[0, :] = self.initialProbabilities + initial_emissions
+        delta[0, :] = self.initialProbabilities * initial_emissions
         psi[0, :] = 0
 
         for t in range(1, len(observations)):
@@ -130,8 +130,8 @@ class AbstractHMM(object):
                 transitions = np.empty(shape=(self.nStates,))
                 # probability of transitioning to this state at time t
                 # for each state
-                transitions[:] = delta[t - 1, :] + self.transitionMatrix[:, state]
-                delta[t, state] = np.max(transitions) + \
+                transitions[:] = delta[t - 1, :] * self.transitionMatrix[:, state]
+                delta[t, state] = np.max(transitions) * \
                                   self.emission_probability(state, observations[t])
                 psi[t, state] = np.argmax(transitions)
 
@@ -151,15 +151,19 @@ class AbstractHMM(object):
         :param observations:
         :return:
         """
-        return np.logaddexp.reduce(self.forward(observations)[-1,])
+        return self.forward(observations)[-1,].sum()
 
     def forward(self, observations):
         # alpha[time, state]
         alpha = np.empty(shape=(len(observations), self.nStates))
+        scaling_coefficients = np.ones(shape=(len(observations)))
+
         initial_emissions = self.emission_probability(state=None, observation=observations[0])
         # print "Initial emission probs: {}".format(np.exp(initial_emissions))
         # print "Initial state probs: {}".format(np.exp(self.initialProbabilities))
-        alpha[0,] = self.initialProbabilities + initial_emissions
+        alpha[0,] = self.initialProbabilities * initial_emissions
+        scaling_coefficients[0] = alpha[0,].sum()
+        alpha[0,] /= scaling_coefficients[0]
         # scaling_parameters = np.empty(shape=len(observations))
 
         for t, obs in enumerate(observations):
@@ -167,12 +171,15 @@ class AbstractHMM(object):
                 continue
             for state in range(self.nStates):
                 transitions = np.empty(shape=(self.nStates,))
-                transitions[:] = alpha[t - 1,] + self.transitionMatrix[:, state]
-                alpha[t, state] = np.logaddexp.reduce(transitions) + self.emission_probability(state, obs)
+                transitions[:] = alpha[t - 1,] * self.transitionMatrix[:, state]
+                alpha[t, state] = transitions * self.emission_probability(state, obs)
+            scaling_coefficients[t] = alpha[t,].sum()
+            alpha[t,] /= scaling_coefficients[t]
+
         if self.verbose:
-            print "alpha = %s" % np.exp(alpha)
+            print "alpha = %s" % alpha
             print "***********"
-        return alpha
+        return alpha, scaling_coefficients
 
     def backward_probability(self, observations):
         raise NotImplementedError()
