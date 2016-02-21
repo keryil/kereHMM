@@ -27,15 +27,15 @@ class DiscreteDistribution(Distribution):
     def __init__(self, n, randomize=False):
         self.n = n
         # initialize to 1/n
-        self.probabilities = np.log(np.array([1. / n] * n))
+        self.probabilities = np.array([1. / n] * n)
         if randomize:
-            self.probabilities = np.log(random_simplex(n))
+            self.probabilities = random_simplex(n)
 
     def get_probability(self, observation, *args, **kwargs):
         return self.probabilities[observation]
 
     def emit(self):
-        return choice(range(self.n), p=np.exp(self.probabilities))
+        return choice(range(self.n), p=self.probabilities)
 
 
 class GaussianDistribution(Distribution):
@@ -55,7 +55,7 @@ class GaussianDistribution(Distribution):
     You can simply use bracket indexing to get the probability of
     an observation. Note that all probabilities are in log scale.
     >>> from scipy import stats
-    >>> m[(0, 0)] == stats.multivariate_normal(mean=m.mean, cov=m.variance).logpdf((0,0))
+    >>> m[(0, 0)] == stats.multivariate_normal(mean=m.mean, cov=m.variance).pdf((0,0))
     True
 
     It also supports univariate gaussians.
@@ -64,7 +64,7 @@ class GaussianDistribution(Distribution):
     0
     >>> m.variance
     1
-    >>> m[0] == stats.norm(loc=0, scale=1).logpdf(0)
+    >>> m[0] == stats.norm(loc=0, scale=1).pdf(0)
     True
 
     You can also randomize the means upon initialization by passing random=True.
@@ -118,9 +118,9 @@ class GaussianDistribution(Distribution):
 
     def get_probability(self, observation, *args, **kwargs):
         if self.dimensions != 1:
-            return multivariate_normal(mean=self.mean, cov=self.variance).logpdf(observation)
+            return multivariate_normal(mean=self.mean, cov=self.variance).pdf(observation)
         else:
-            return norm(loc=self.mean, scale=self.variance).logpdf(observation)
+            return norm(loc=self.mean, scale=self.variance).pdf(observation)
 
     def emit(self):
         if self.dimensions != 1:
