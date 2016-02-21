@@ -122,7 +122,7 @@ class AbstractHMM(object):
         psi = np.empty(shape=(len(observations), self.nStates))
 
         initial_emissions = np.array([d[observations[0]] for d in self.emissionDistributions])
-        delta[0, :] = self.initialProbabilities * initial_emissions
+        delta[0, :] = np.log(self.initialProbabilities) + np.log(initial_emissions)
         psi[0, :] = 0
 
         for t in range(1, len(observations)):
@@ -130,9 +130,9 @@ class AbstractHMM(object):
                 transitions = np.empty(shape=(self.nStates,))
                 # probability of transitioning to this state at time t
                 # for each state
-                transitions[:] = delta[t - 1, :] * self.transitionMatrix[:, state]
-                delta[t, state] = np.max(transitions) * \
-                                  self.emission_probability(state, observations[t])
+                transitions[:] = delta[t - 1, :] + np.log(self.transitionMatrix[:, state])
+                delta[t, state] = np.max(transitions) + \
+                                  np.log(self.emission_probability(state, observations[t]))
                 psi[t, state] = np.argmax(transitions)
 
         # log probability of viterbi path
@@ -270,26 +270,26 @@ class AbstractHMM(object):
         :return:
         """
         delta_p = DELTA_P
-        self.transitionMatrix[:] = np.log(delta_p)
+        self.transitionMatrix[:] = delta_p
         for state in range(self.nStates):
             try:
-                self.transitionMatrix[state, state + 1] = np.log(1 - delta_p * (self.nStates - 1))
+                self.transitionMatrix[state, state + 1] = 1 - delta_p * (self.nStates - 1)
             # last state cannot have a valid trans[state+1]
             except IndexError:
                 assert state == self.nStates - 1
-                self.transitionMatrix[state, 0] = np.log(1 - delta_p * (self.nStates - 1))
+                self.transitionMatrix[state, 0] = 1 - delta_p * (self.nStates - 1)
 
         # set the initial probs the same way
-        self.initialProbabilities = np.array([np.log(1 - delta_p * (self.nStates - 1))] + \
-                                             [np.log(delta_p)] * (self.nStates - 1))
+        self.initialProbabilities = np.array([1 - delta_p * (self.nStates - 1)] + \
+                                             [delta_p] * (self.nStates - 1))
 
         if set_emissions:
             # set emission probabilities so that each state only emits
             # its own label
             for i, (state, distribution) in enumerate(zip(range(self.nStates), self.emissionDistributions)):
                 probs = np.empty_like(distribution.probabilities)
-                probs[:] = -np.inf
-                probs[i] = 0
+                probs[:] = 0
+                probs[i] = 1
                 distribution.probabilities = probs
 
     def do_pass(self, observations):
