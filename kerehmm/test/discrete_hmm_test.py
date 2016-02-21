@@ -212,20 +212,21 @@ class TestAgainstGhmm(DiscreteHMMTest):
         hmm_reference = ghmm_from_discrete_hmm(hmm)
         observed = [0, 1, 2, 2]
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
-        forward = hmm.forward(observed)
+        forward, scale = hmm.forward(observed)
 
         # remember that we have to convert stuff from ghmm to log scale
         forward_reference, scale_reference = map(np.array, hmm_reference.forward(seq))
-        forward_reference_log = np.log(forward_reference)
         print "Forward reference (scaled):\n", forward_reference
         print "Scale reference: {}".format(scale_reference)
-        for i, c in enumerate(scale_reference):
-            forward_reference_log[i] += sum(np.log(scale_reference[:i + 1]))
-        print "Forward reference (unscaled):\n", np.exp(forward_reference_log)
+        # for i, c in enumerate(scale_reference):
+        #     forward_reference_log[i] += sum(np.log(scale_reference[:i + 1]))
+        # print "Forward reference (unscaled):\n", np.exp(forward_reference_log)
 
-        print "Forward:\n", np.exp(forward)
+        print "Forward:\n", forward
+        print "Scale:\n", scale
 
-        assert np.allclose(forward, forward_reference_log)
+        assert np.allclose(forward, forward_reference)
+        assert np.allclose(scale, scale_reference)
 
     def test_backward_against_ghmm(self):
         from kerehmm.test.util import ghmm_from_discrete_hmm
