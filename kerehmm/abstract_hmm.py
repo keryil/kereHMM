@@ -172,7 +172,16 @@ class AbstractHMM(object):
             for state in range(self.nStates):
                 transitions = np.empty(shape=(self.nStates,))
                 transitions[:] = alpha[t - 1,] * self.transitionMatrix[:, state]
-                alpha[t, state] = transitions * self.emission_probability(state, obs)
+                try:
+                    alpha[t, state] = transitions.sum() * self.emission_probability(state, obs)
+                except ValueError, err:
+                    print "t =", t
+                    print "self.transitionMatrix[:, {}] = {}".format(state, self.transitionMatrix[:, state])
+                    print "alpha[:]\t=\t", alpha
+                    print "scale\t=\t", scaling_coefficients
+                    print "transitions[:]\t=\t", transitions
+                    print "emission_prob({},{})\t=\t".format(state, obs), self.emission_probability(state, obs)
+                    raise err
             scaling_coefficients[t] = alpha[t,].sum()
             alpha[t,] /= scaling_coefficients[t]
 

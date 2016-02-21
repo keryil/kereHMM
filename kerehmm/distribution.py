@@ -95,7 +95,7 @@ class GaussianDistribution(Distribution):
                         raise ValueError("Mean has invalid shape: \nmean\t=\t{}".format(mean))
                 else:
                     if self.dimensions == 1:
-                        return 0
+                        return 0.
                     else:
                         return np.zeros(shape=(self.dimensions,))
 
@@ -104,10 +104,10 @@ class GaussianDistribution(Distribution):
                 return variance
             if self.dimensions == 1:
                 if random:
-                    return 1
+                    return 1.
                     # return np.random.random()
                 else:
-                    return 1
+                    return 1.
             else:
                 variances = np.zeros((self.dimensions, self.dimensions))
                 np.fill_diagonal(variances, 1)

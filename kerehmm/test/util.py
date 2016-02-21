@@ -1,15 +1,14 @@
 from copy import deepcopy
 
 import ghmm
-import numpy as np
 
 
 def ghmm_from_discrete_hmm(hmm):
     hmm = deepcopy(hmm)
     domain = ghmm.Alphabet(range(hmm.alphabetSize))
-    trans = np.exp(hmm.transitionMatrix)
-    init = np.exp(hmm.initialProbabilities)
-    emissions = np.exp([d.probabilities for d in hmm.emissionDistributions])
+    trans = hmm.transitionMatrix
+    init = hmm.initialProbabilities
+    emissions = [d.probabilities for d in hmm.emissionDistributions]
     return ghmm.HMMFromMatrices(emissionDomain=domain,
                                 distribution=ghmm.DiscreteDistribution(domain),
                                 A=trans,
@@ -20,8 +19,8 @@ def ghmm_from_discrete_hmm(hmm):
 def ghmm_from_gaussian_hmm(hmm):
     hmm = deepcopy(hmm)
     domain = ghmm.Float()
-    trans = np.exp(hmm.transitionMatrix).tolist()
-    init = np.exp(hmm.initialProbabilities).tolist()
+    trans = hmm.transitionMatrix.tolist()
+    init = hmm.initialProbabilities.tolist()
     emissions = [map(float, [d.mean, d.variance]) for d in hmm.emissionDistributions]
     # print init
     # print trans
@@ -36,8 +35,8 @@ def ghmm_from_gaussian_hmm(hmm):
 def ghmm_from_multivariate_continuous_hmm(hmm):
     hmm = deepcopy(hmm)
     domain = ghmm.Float()
-    trans = np.exp(hmm.transitionMatrix).tolist()
-    init = np.exp(hmm.initialProbabilities).tolist()
+    trans = hmm.transitionMatrix.tolist()
+    init = hmm.initialProbabilities.tolist()
     emissions = [[d.mean.tolist(), d.variance.flatten().tolist()] for d in hmm.emissionDistributions]
     # print init
     # print trans

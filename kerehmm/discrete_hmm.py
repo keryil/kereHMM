@@ -25,8 +25,7 @@ class DiscreteHMM(AbstractHMM):
     def sanity_check(self):
         super(DiscreteHMM, self).sanity_check()
         for dist in self.emissionDistributions:
-            sum = np.logaddexp.reduce(dist.probabilities)
-            assert np.isclose(sum, np.log(1))
+            assert np.isclose(dist.probabilities.sum(), 1.)
 
     def do_pass(self, observations, verbose=False):
         text = \

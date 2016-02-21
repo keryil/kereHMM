@@ -23,9 +23,9 @@ class TestGhmmConversion(DiscreteHMMTest):
         hmm = self.new_hmm()
         hmm_reference = self.to_ghmm(hmm)
 
-        trans = np.exp(hmm.transitionMatrix)
-        emit = np.exp([d.probabilities for d in hmm.emissionDistributions])
-        init = np.exp(hmm.initialProbabilities)
+        trans = hmm.transitionMatrix
+        emit = [d.probabilities for d in hmm.emissionDistributions]
+        init = hmm.initialProbabilities
 
         trans_reference, emit_reference, init_reference = hmm_reference.asMatrices()
         assert np.array_equal(trans, trans_reference)
@@ -47,21 +47,27 @@ class TestStandalone(DiscreteHMMTest):
 
     def test_forward_probabilities(self):
         hmm = self.new_hmm()
-        prob_trans = np.log(1. / self.nStates)
-        prob_emit = np.log(1. / self.nSymbols)
+        prob_trans = 1. / self.nStates
+        prob_emit = 1. / self.nSymbols
         hmm.transitionMatrix[:] = prob_trans
         hmm.initialProbabilities[:] = prob_trans
         for emission in hmm.emissionDistributions:
             emission.probabilities[:] = prob_emit
-        prob_line = np.array([(prob_trans + prob_emit)] * self.nStates)
 
-        assert np.array_equal(hmm.forward([0, 0, 0]), hmm.forward([1, 1, 1]))
+        forward, coefs = hmm.forward([0, 0, 0])
+        prob_line = np.array([(prob_trans * prob_emit)] * self.nStates)
 
-        assert np.array_equal(hmm.forward([0, 0, 0])[0], prob_line)
-        prob_line[:] = np.logaddexp.reduce(prob_line + prob_trans) + prob_emit
-        assert np.array_equal(hmm.forward([0, 0, 0])[1], prob_line)
-        prob_line[:] = np.logaddexp.reduce(prob_line + prob_trans) + prob_emit
-        assert np.array_equal(hmm.forward([0, 0, 0])[2], prob_line)
+        print "Forward: {}".format(forward)
+        print "Scale: {}".format(coefs)
+        # these should be equivalent under such parameters
+        assert np.array_equal(forward, hmm.forward([1, 1, 1])[0])
+        assert np.array_equal(forward[0] * coefs[0], prob_line)
+
+        prob_line[:] = (prob_line * prob_trans).sum() * prob_emit
+        assert np.array_equal(forward[1] * np.product(coefs[:2]), prob_line)
+
+        prob_line[:] = (prob_line * prob_trans).sum() * prob_emit
+        assert np.array_equal(forward[2] * np.product(coefs[:3]), prob_line)
 
     def test_viterbi_path_with_emissions(self):
         hmm = self.new_hmm()
