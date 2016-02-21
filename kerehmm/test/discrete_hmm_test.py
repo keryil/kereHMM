@@ -98,16 +98,16 @@ class TestStandalone(DiscreteHMMTest):
         assert np.array_equal(viterbi_path, true_path)
 
     def test_training_from_simulation(self):
-        self.nStates = 4
-        self.nSymbols = 6
-        observation_size = 1000
+        self.nStates = 2
+        self.nSymbols = 2
+        observation_size = 100
 
         hmm = self.new_hmm(random_transitions=True, random_emissions=True)
         # hmm.setup_strict_left_to_right()
         reference_hmm = self.new_hmm(random_emissions=True, random_transitions=True)
-        true_init_p = np.exp(reference_hmm.initialProbabilities)
-        true_trans_p = np.exp(reference_hmm.transitionMatrix)
-        true_emission_p = np.array(map(lambda x: np.exp(x.probabilities), reference_hmm.emissionDistributions))
+        true_init_p = reference_hmm.initialProbabilities
+        true_trans_p = reference_hmm.transitionMatrix
+        true_emission_p = np.array(map(lambda x: x.probabilities, reference_hmm.emissionDistributions))
         true_states, observations = reference_hmm.simulate(iterations=observation_size)
 
         text = \
@@ -127,23 +127,23 @@ class TestStandalone(DiscreteHMMTest):
             Observations ({}):
             {}
                         """
-        print text.format(true_init_p, np.exp(hmm.initialProbabilities),
-                          np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
-                          true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
-                          np.sum(np.abs([p1 - np.exp(p2.probabilities) for p1, p2 in
+        print text.format(true_init_p, hmm.initialProbabilities,
+                          np.sum(np.abs(true_init_p - hmm.initialProbabilities)),
+                          true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
+                          np.sum(np.abs([p1 - p2.probabilities for p1, p2 in
                                          zip(true_emission_p, hmm.emissionDistributions)])),
-                          true_trans_p, np.exp(hmm.transitionMatrix),
-                          np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
+                          true_trans_p, hmm.transitionMatrix,
+                          np.sum(np.abs(true_trans_p - hmm.transitionMatrix)),
                           observation_size, observations)
 
         hmm.train(observations, iterations=500)
-        print text.format(true_init_p, np.exp(hmm.initialProbabilities),
-                          np.sum(np.abs(true_init_p - np.exp(hmm.initialProbabilities))),
-                          true_emission_p, np.array([np.exp(p.probabilities) for p in hmm.emissionDistributions]),
-                          np.sum(np.abs([p1 - np.exp(p2.probabilities) for p1, p2 in
+        print text.format(true_init_p, hmm.initialProbabilities,
+                          np.sum(np.abs(true_init_p - hmm.initialProbabilities)),
+                          true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
+                          np.sum(np.abs([p1 - p2.probabilities for p1, p2 in
                                          zip(true_emission_p, hmm.emissionDistributions)])),
-                          true_trans_p, np.exp(hmm.transitionMatrix),
-                          np.sum(np.abs(true_trans_p - np.exp(hmm.transitionMatrix))),
+                          true_trans_p, hmm.transitionMatrix,
+                          np.sum(np.abs(true_trans_p - hmm.transitionMatrix)),
                           observation_size, observations)
 
     def test_training(self):
@@ -188,7 +188,7 @@ class TestStandalone(DiscreteHMMTest):
                           true_trans_p, hmm.transitionMatrix,
                           observation_size, observations)
 
-        hmm.train(observations, auto_stop=False, iterations=30)
+        hmm.train(observations, auto_stop=True, iterations=30)
         print text.format(true_init_p, hmm.initialProbabilities,
                           true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
                           true_trans_p, hmm.transitionMatrix,
@@ -200,9 +200,10 @@ class TestAgainstGhmm(DiscreteHMMTest):
     def test_forward_against_ghmm(self):
         from .util import ghmm_from_discrete_hmm
         import ghmm
-        hmm = self.new_hmm(random_transitions=True)
+        hmm = self.new_hmm(random_transitions=True, random_emissions=True)
         hmm_reference = ghmm_from_discrete_hmm(hmm)
-        observed = [0, 1, 2, 2]
+        observation_size = 10
+        observed = np.random.choice(range(self.nSymbols), size=observation_size).tolist()
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
         forward, scale = hmm.forward(observed)
 
@@ -223,9 +224,10 @@ class TestAgainstGhmm(DiscreteHMMTest):
     def test_backward_against_ghmm(self):
         from kerehmm.test.util import ghmm_from_discrete_hmm
         import ghmm
-        hmm = self.new_hmm()
+        hmm = self.new_hmm(random_emissions=True, random_transitions=True)
         hmm_reference = ghmm_from_discrete_hmm(hmm)
-        observed = [0, 1, 2, 2]
+        observation_size = 10
+        observed = np.random.choice(range(self.nSymbols), size=observation_size).tolist()
         seq = ghmm.EmissionSequence(hmm_reference.emissionDomain, observed)
         _, scale = hmm.forward(observations=observed)
         # remember that we have to convert stuff from ghmm to log scale

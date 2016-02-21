@@ -3,7 +3,7 @@ from itertools import product
 
 import numpy as np
 
-from kerehmm.util import DELTA_P, smooth_probabilities
+from kerehmm.util import smooth_probabilities
 from .abstract_hmm import AbstractHMM
 from .distribution import DiscreteDistribution
 
@@ -76,8 +76,7 @@ class DiscreteHMM(AbstractHMM):
                 if len(nominator):
                     nominator = (gamma[np.array(observations) == symbol, state].sum())
                 else:
-                    nominator = DELTA_P
-                    denominator += DELTA_P
+                    nominator = 0
                 dist.probabilities[symbol] = nominator
             dist.probabilities /= denominator
             dist.probabilities = smooth_probabilities(dist.probabilities)

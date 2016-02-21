@@ -253,7 +253,7 @@ class AbstractHMM(object):
                                                              observations[t + 1]) \
                                  * beta[t + 1,]
 
-                beta[t, i] = transitions.sum() / scale_coefficients[t]
+                beta[t, i] = transitions.sum() / scale_coefficients[t + 1]
         # beta[-1, ] = np.log(1.0 / self.nStates)
         return beta
 
