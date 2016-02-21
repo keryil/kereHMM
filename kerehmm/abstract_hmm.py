@@ -32,6 +32,14 @@ class AbstractHMM(object):
         self.stateLabels = state_labels
         self.verbose = verbose
 
+    def initialize_parameters(self, observations):
+        """
+        Initializes (i.e. roughly estimates) the parameters based on the observation before training.
+        :param observations:
+        :return:
+        """
+        raise NotImplementedError()
+
     def sanity_check(self, sanitize=False, verbose=None):
         """
         Checks if the parameters are in range, and if the distributions provided are true probability distributions.
@@ -296,7 +304,7 @@ class AbstractHMM(object):
     def do_pass(self, observations):
         raise NotImplementedError()
 
-    def train(self, observations, iterations=None, auto_stop=True, verbose=False):
+    def train(self, observations, iterations=100, auto_stop=True, verbose=False):
         """
         This is the training algorithm in Rabiner 1989
         equations 40a, 40b and 40c.
@@ -304,36 +312,40 @@ class AbstractHMM(object):
         :param iterations:
         :return:
         """
-        if auto_stop and not iterations:
-            i = 0
-            while True:
-                i += 1
-                old_f = self.forward_probability(observations)
-                self.do_pass(observations, not (i % 100))
-                if not (i % 100):
-                    print 'ITERATION #{}'.format(i)
-                    print 'Log likelihood = {}'.format(old_f)
-                    print 'Delta llk = {}'.format(delta_p)
-                if auto_stop:
-                    delta_p = self.forward_probability(observations) - old_f
-                    if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
-                        break
-        else:
-            for i in range(iterations + 1):
-                old_f = self.forward_probability(observations)
-                self.do_pass(observations, verbose)
-                if auto_stop:
-                    delta_p = self.forward_probability(observations) - old_f
-                    # if not (i % 100):
-                    print 'ITERATION #{}'.format(i)
-                    print 'Log likelihood = {}'.format(old_f)
-                    print 'Delta llk = {}'.format(delta_p)
-                    if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
-                        break
+        # if auto_stop and not iterations:
+        #     i = 0
+        #     while True:
+        #         i += 1
+        #         old_f = self.forward_probability(observations)
+        #         self.do_pass(observations, not (i % 100))
+        #         if not (i % 100):
+        #             print 'ITERATION #{}'.format(i)
+        #             print 'Log likelihood = {}'.format(old_f)
+        #             print 'Delta llk = {}'.format(delta_p)
+        #         if auto_stop:
+        #             delta_p = self.forward_probability(observations) - old_f
+        #             if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
+        #                 break
+        # else:
+        for i in range(iterations + 1):
+            print 'ITERATION #{}'.format(i)
+            old_f = self.forward_probability(observations)
+            print 'Log likelihood = {}'.format(old_f)
+
+            self.do_pass(observations, verbose)
+            new_f = self.forward_probability(observations)
+            delta_p = new_f - old_f
+            print "Is this an improvement? {}".format("Yes" if delta_p > 0 else "No")
+            if auto_stop:
+                # if not (i % 100):
+                print 'New log likelihood = {}'.format(new_f)
+                print 'Delta llk = {}'.format(delta_p)
+                if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
+                    break
 
         print "Finished training at {} iterations.".format(i)
         print "DELTA FORWARD LOG PROB AFTER TRAINING:", delta_p
-        print "{} --> {}".format(old_f, self.forward_probability(observations))
+        print "{} --> {}".format(old_f, new_f)
         # print delta_p / np.exp(old_f)
 
     def emit(self):
@@ -341,9 +353,9 @@ class AbstractHMM(object):
 
     def transition(self):
         if self.current_state:
-            self.current_state = choice(range(self.nStates), p=np.exp(self.transitionMatrix[self.current_state,]))
+            self.current_state = choice(range(self.nStates), p=self.transitionMatrix[self.current_state,])
         else:
-            self.current_state = choice(range(self.nStates), p=np.exp(self.initialProbabilities))
+            self.current_state = choice(range(self.nStates), p=self.initialProbabilities)
 
     def simulate(self, iterations=1, reset=True):
         emissions = []

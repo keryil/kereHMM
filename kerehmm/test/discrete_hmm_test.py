@@ -98,8 +98,8 @@ class TestStandalone(DiscreteHMMTest):
         assert np.array_equal(viterbi_path, true_path)
 
     def test_training_from_simulation(self):
-        self.nStates = 3
-        self.nSymbols = 3
+        self.nStates = 4
+        self.nSymbols = 6
         observation_size = 1000
 
         hmm = self.new_hmm(random_transitions=True, random_emissions=True)
@@ -156,13 +156,13 @@ class TestStandalone(DiscreteHMMTest):
         # hmm.setup_strict_left_to_right()
         true_init_p = random_simplex(self.nStates)
         true_states = [choice(range(self.nStates), p=true_init_p)]
-        true_trans_p = np.array([[.60, .30, .10],
+        true_trans_p = np.array([[.90, .05, .05],
                                  [.10, .80, .10],
-                                 [.30, .10, .60]])  # random_simplex(self.nStates, two_d=True)
+                                 [.20, .10, .70]])  # random_simplex(self.nStates, two_d=True)
         for i in range(1, observation_size):
             true_states.append(choice(range(self.nStates), p=true_trans_p[true_states[-1]]))
         true_emission_p = np.array([[.70, .30],
-                                    [.40, .60],
+                                    [.70, .30],
                                     [.10, .90]])  # [random_simplex(self.nSymbols) for _ in range(self.nStates)]
         observations = [choice(range(self.nSymbols), p=true_emission_p[state]) for state in true_states]
 
@@ -188,7 +188,7 @@ class TestStandalone(DiscreteHMMTest):
                           true_trans_p, hmm.transitionMatrix,
                           observation_size, observations)
 
-        hmm.train(observations, iterations=200)
+        hmm.train(observations, auto_stop=False, iterations=30)
         print text.format(true_init_p, hmm.initialProbabilities,
                           true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
                           true_trans_p, hmm.transitionMatrix,

@@ -3,7 +3,7 @@ from itertools import product
 
 import numpy as np
 
-from kerehmm.util import DELTA_P
+from kerehmm.util import DELTA_P, smooth_probabilities
 from .abstract_hmm import AbstractHMM
 from .distribution import DiscreteDistribution
 
@@ -64,9 +64,9 @@ class DiscreteHMM(AbstractHMM):
         # print text
         T = len(observations)
 
-        pi_new[:] = gamma[0, :]
+        pi_new[:] = smooth_probabilities(gamma[0, :])
         if verbose:
-            print "New initial probs:", np.exp(pi_new)
+            print "New initial probs:", pi_new
 
         new_dists = deepcopy(self.emissionDistributions)
         for state, dist in enumerate(new_dists):
@@ -80,6 +80,7 @@ class DiscreteHMM(AbstractHMM):
                     denominator += DELTA_P
                 dist.probabilities[symbol] = nominator
             dist.probabilities /= denominator
+            dist.probabilities = smooth_probabilities(dist.probabilities)
         # print "New emission distributions: {}".format(map(lambda x: np.exp(x.probabilities), new_dists))
 
         # transition matrix
@@ -93,6 +94,7 @@ class DiscreteHMM(AbstractHMM):
             sum_gamma = gamma[:T - 1, from_].sum()
             trans_new[from_, to] = sum_xi / sum_gamma
         trans_new /= np.expand_dims(trans_new.sum(axis=1), axis=-1)
+        trans_new = smooth_probabilities(trans_new)
 
         for i, row in enumerate(trans_new):
             if verbose:
@@ -123,3 +125,6 @@ class DiscreteHMM(AbstractHMM):
                               self.initialProbabilities, self.initialProbabilities.sum(),
                               self.transitionMatrix, self.transitionMatrix.sum(axis=1),
                               dists, np.sum(dists, axis=1))
+
+    def initialize_parameters(self, observations):
+        pass
