@@ -55,7 +55,7 @@ class GaussianHMM(AbstractHMM):
         alpha = self.forward(observations)
         beta = self.backward(observations)
         xi = self.xi(observations=observations, alpha=alpha, beta=beta)
-        gamma = self.gamma3(alpha, beta)
+        gamma = self.gamma(alpha, beta)
 
         pi_new = self.estimate_initial_probabilities(gamma)
         if verbose:

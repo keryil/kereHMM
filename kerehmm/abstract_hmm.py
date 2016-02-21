@@ -184,54 +184,9 @@ class AbstractHMM(object):
     def backward_probability(self, observations):
         raise NotImplementedError()
 
-    def gamma2(self, observations):
-        """
-        Equation 27 from Rabiner 1989. Utilised for training.
-
-        :param observations:
-        :return:
-        """
-        alpha = self.forward(observations)
-        beta = self.backward(observations)
-        print "Alpha", np.exp(alpha)
-        print "Beta", np.exp(beta)
-        alpha_times_betas = (alpha + beta)
-        print "Product", np.exp(alpha_times_betas)
-        denom = np.logaddexp.reduce(alpha_times_betas)
-        print "Denominator", np.exp(denom)
-        denom_expanded = np.repeat(np.atleast_2d(denom), len(observations), axis=0)
-        print "Expanded Denominator", denom_expanded
-        gamma = alpha_times_betas - denom_expanded
-
-        print "GAMMA", np.exp(gamma)
-        return gamma
-
-    def gamma3(self, alpha, beta):
-        gamma = alpha + beta - np.expand_dims(np.logaddexp.reduce(alpha + beta, axis=-1), axis=1)
-        return gamma
-
-    def gamma(self, xi=None, observations=None):
-        """
-        Equation 38 from Rabiner 1989.
-        :param observations:
-        :return:
-        """
-        if xi is None:
-            assert observations
-            xi = self.xi(observations)
-        alpha = self.forward(observations)
-        beta = self.backward(observations)
-        gamma = np.logaddexp.reduce(xi, axis=-1)
-        # print np.exp(gamma)
-        # append last line
-        prod = alpha[-1,] + beta[-1,]
-        prod = prod - np.logaddexp.reduce(prod)
-        # print np.exp(prod)
-        gamma = np.vstack((gamma, prod))
-        gamma = np.empty(shape=(len(xi), self.nStates))
-        # for t, matrix in enumerate(xi):
-        #     x = np.logaddexp.reduce(matrix[:], axis=1)[0]
-        #     gamma[t] = x
+    @staticmethod
+    def gamma(alpha, beta):
+        gamma = alpha * beta / np.expand_dims((alpha * beta).sum(axis=-1), axis=1)
         return gamma
 
     def xi(self, observations, alpha=None, beta=None):
@@ -248,17 +203,17 @@ class AbstractHMM(object):
             beta = self.backward(observations)
 
         for t, _ in enumerate(observations[:-1]):
-            running_sum = -np.inf
+            # running_sum = 0
             for i, j in product(range(self.nStates), range(self.nStates)):
                 xi[t, i, j] = alpha[t, i] \
-                              + self.transitionMatrix[i, j] \
-                              + self.emission_probability(j, observations[t + 1]) \
-                              + beta[t + 1, j]
+                              * self.transitionMatrix[i, j] \
+                              * self.emission_probability(j, observations[t + 1]) \
+                              * beta[t + 1, j]
                 # running_sum = np.logaddexp(running_sum, xi[t, i, j])
-            xi[t, :] -= np.logaddexp.reduce(alpha[-1])
+            xi[t, :] /= alpha[-1].sum()
         return xi
 
-    def backward(self, observations):
+    def backward(self, observations, scale_coefficients):
         """
         Computes the backward probabilities of a string of observations, as
         in Rabiner 1989's equations 23, 24, and 25.
@@ -268,18 +223,19 @@ class AbstractHMM(object):
         # beta[time, state]
         beta = np.empty(shape=(len(observations), self.nStates))
         # this used to be log(1), but I changed it to mimic ghmm library.
-        beta[-1,] = np.log(1.0)  # / self.nStates)
+        beta[-1,] = 1.  # / self.nStates)
 
         for t in range(0, len(observations) - 1)[::-1]:
             # print beta
             for i in range(self.nStates):
                 transitions = np.empty(shape=self.nStates)
                 # print "Emission probs in forward():", np.exp(self.emission_probability(None, observations[t + 1]))
-                transitions[:] = self.transitionMatrix[i, :] + \
-                                 self.emission_probability(None,
-                                                           observations[t + 1])
+                transitions[:] = self.transitionMatrix[i, :] \
+                                 * self.emission_probability(None,
+                                                             observations[t + 1]) \
+                                 * beta[t + 1,]
 
-                beta[t, i] = np.logaddexp.reduce(transitions + beta[t + 1,])
+                beta[t, i] = transitions.sum() / scale_coefficients[t]
         # beta[-1, ] = np.log(1.0 / self.nStates)
         return beta
 

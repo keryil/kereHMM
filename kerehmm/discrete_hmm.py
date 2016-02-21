@@ -54,7 +54,7 @@ class DiscreteHMM(AbstractHMM):
         beta = self.backward(observations)
         xi = self.xi(observations=observations, alpha=alpha, beta=beta)
         # gamma = np.zeros(shape=(len(observations), self.nStates))  # self.gamma2(observations=observations)
-        gamma = self.gamma3(alpha, beta)
+        gamma = self.gamma(alpha, beta)
         # text = \
         #     """
         #     Xi      = {}
