@@ -51,10 +51,10 @@ class GaussianHMM(AbstractHMM):
                               emit)
         # print "FORWARD PROB: {}".format(np.exp(self.forward_probability(observations)))
         # initial probabilities
-        # xi = np.zeros(shape=(len(observations), self.nStates, self.nStates))
+        # zi = np.zeros(shape=(len(observations), self.nStates, self.nStates))
         alpha = self.forward(observations)
         beta = self.backward(observations)
-        xi = self.xi(observations=observations, alpha=alpha, beta=beta)
+        xi = self.zi(observations=observations, alpha=alpha, beta=beta)
         gamma = self.gamma(alpha, beta)
 
         pi_new = self.estimate_initial_probabilities(gamma)
@@ -101,7 +101,7 @@ class GaussianHMM(AbstractHMM):
     def estimate_transition_probabilities(self, gamma, xi):
         trans_new = np.empty_like(self.transitionMatrix)
         # trans_new[:] = -np.inf
-        # local_xi = xi[:T - 1]
+        # local_xi = zi[:T - 1]
         # local_gamma = gamma[:T - 1]
         for from_, to in product(range(self.nStates), range(self.nStates)):
             sum_xi = -np.inf

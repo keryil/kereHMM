@@ -8,79 +8,79 @@ from kerehmm.distribution import DiscreteDistribution
 from kerehmm.util import smooth_probabilities, DELTA_P
 
 
-def align_hmm_to(from_hmm, to_hmm):
+class DiscreteHMM(AbstractHMM):
     """
-    Function that tries to align two HMMs by making their most similar
-    states coincide. Returns a list of how to map from_hmm states
-    onto those of to_hmm.
-
-    Let's have two simple and equivalent HMMs that only differ in
-    the state order, and are uniform except initial probs.
-    >>> import numpy as np
-    >>> hmm1 = DiscreteHMM(3, 3)
-    >>> hmm1.initialProbabilities = np.array([.1, .7, .8])
-    >>> hmm1.initialProbabilities
-    array([ 0.1,  0.7,  0.8])
-    >>> hmm2 = DiscreteHMM(3, 3)
-    >>> hmm2.initialProbabilities = np.array([.8, .7, .1])
-    >>> hmm2.initialProbabilities
-    array([ 0.8,  0.7,  0.1])
-    >>> align_hmm_to(hmm1, hmm2)
-    (2, 1, 0)
-
-    differences are in transition probs
-    swapped states 1&2.
-    >>> hmm1 = DiscreteHMM(3, 3)
-    >>> hmm1.transitionMatrix = np.array([[.9, 0,.1],\
-                                          [.2,.8, 0],\
-                                          [0 ,.3,.7]])
-    >>> hmm2 = DiscreteHMM(3, 3)
-    >>> hmm2.transitionMatrix = np.array([[.9, .1,.0],\
-                                          [0 ,.7,.3],\
-                                          [.2,.0,.8]])
-    >>> align_hmm_to(hmm1, hmm2)
-    (0, 2, 1)
-
-    differences are in emission probs
-    swapped states 0&2.
-    >>> hmm1 = DiscreteHMM(3, 3)
-    >>> hmm1.emissionDistributions[0].probabilities = np.array([.1, .1, .8])
-    >>> hmm2 = DiscreteHMM(3, 3)
-    >>> hmm2.emissionDistributions[2].probabilities = np.array([.1, .1, .8])
-
-    >>> align_hmm_to(hmm1, hmm2)
-    (2, 1, 0)
-
-    :param from_hmm:
-    :param to_hmm:
-    :return:
+    I am an HMM with discrete emission distributions.
     """
-    from itertools import permutations
-    from collections import defaultdict
-    assert from_hmm.nStates == to_hmm.nStates
-    nStates = from_hmm.nStates
-    candidate_mappings = permutations(range(from_hmm.nStates))
-    scores = dict()
-    emission_scores = defaultdict(int)
-    for mapping in candidate_mappings:
-        # print "Mapping:", mapping
-        # compare prob_inits
-        from_prob_init = np.array([from_hmm.initialProbabilities[i] for i in mapping])
-        to_prob_init = to_hmm.initialProbabilities
-        prob_score = np.abs(to_prob_init - from_prob_init)
-        scores[mapping] = np.sum(prob_score) / nStates
 
-        # compare transitions
-        to_trans = to_hmm.transitionMatrix
-        # print "To:", to_trans
-        from_trans = from_hmm.transitionMatrix[:, mapping][mapping, :]
-        # print "From:", from_trans
-        prob_score = np.sum(np.abs(to_trans - from_trans))
-        scores[mapping] += prob_score / (nStates * nStates)
-        # print "Score: ", prob_score / (nStates * nStates)
+    def __init__(self, number_of_states, alphabet_size, state_labels=None, random_emissions=False, *args, **kwargs):
+        super(DiscreteHMM, self).__init__(number_of_states, state_labels, *args, **kwargs)
+        self.alphabetSize = alphabet_size
+        self.emissionDistributions = np.array(
+            [DiscreteDistribution(n=alphabet_size, randomize=random_emissions) for _ in
+             range(self.nStates)])
+        self.sanity_check()
 
-        # compare emissions
-        from_emissions = [from_hmm.emissionDistributions[i] for i in mapping]
+    def sanity_check(self):
+        super(DiscreteHMM, self).sanity_check()
+        for dist in self.emissionDistributions:
+            assert np.isclose(dist.probabilities.sum(), 1.)
+
+    def compute_mapping_to(self, to_hmm):
+        """
+        Function that tries to align two HMMs by making their most similar
+        states coincide. Returns a list of how to map from_hmm states
+        onto those of to_hmm.
+
+        Let's have two simple and equivalent HMMs that only differ in
+        the state order, and are uniform except initial probs.
+        >>> import numpy as np
+        >>> hmm1 = DiscreteHMM(3, 3)
+        >>> hmm1.initialProbabilities = np.array([.1, .7, .8])
+        >>> hmm1.initialProbabilities
+        array([ 0.1,  0.7,  0.8])
+        >>> hmm2 = DiscreteHMM(3, 3)
+        >>> hmm2.initialProbabilities = np.array([.8, .7, .1])
+        >>> hmm2.initialProbabilities
+        array([ 0.8,  0.7,  0.1])
+        >>> hmm1.compute_mapping_to(hmm2)
+        (2, 1, 0)
+
+        differences are in transition probs
+        swapped states 1&2.
+        >>> hmm1 = DiscreteHMM(3, 3)
+        >>> hmm1.transitionMatrix = np.array([[.9, 0,.1],\
+                                              [.2,.8, 0],\
+                                              [0 ,.3,.7]])
+        >>> hmm2 = DiscreteHMM(3, 3)
+        >>> hmm2.transitionMatrix = np.array([[.9, .1,.0],\
+                                              [0 ,.7,.3],\
+                                              [.2,.0,.8]])
+        >>> hmm1.compute_mapping_to(hmm2)
+        (0, 2, 1)
+
+        differences are in emission probs
+        swapped states 0&2.
+        >>> hmm1 = DiscreteHMM(3, 3)
+        >>> hmm1.emissionDistributions[0].probabilities = np.array([.1, .1, .8])
+        >>> hmm2 = DiscreteHMM(3, 3)
+        >>> hmm2.emissionDistributions[2].probabilities = np.array([.1, .1, .8])
+
+        >>> hmm1.compute_mapping_to(hmm2)
+        (2, 1, 0)
+
+        :param to_hmm:
+        :return:
+        """
+        return super(DiscreteHMM, self).compute_mapping_to(to_hmm)
+
+    def compute_emission_mapping_score(self, to_hmm, mapping):
+        # print self.emissionDistributions
+        # print mapping
+        # import sys
+        # sys.stdout.flush()
+        # sys.stderr.flush()
+        from_emissions = self.emissionDistributions[mapping]
         to_emissions = to_hmm.emissionDistributions
         # print from_emissions
         # print to_emissions
@@ -90,34 +90,7 @@ def align_hmm_to(from_hmm, to_hmm):
             assert isinstance(fro, DiscreteDistribution)
             # print "Emission score:", fro.b_distance(to)
             emission_score += fro.b_distance(to)
-        emission_scores[mapping] = emission_score
-
-    emission_scores = np.array(emission_scores.values())
-    emission_scores /= np.sum(emission_scores)
-    # print "Emission scores:", emission_scores
-    # print "Scores before emissions: ", scores
-    for mapping in candidate_mappings:
-        scores[mapping] = scores[mapping] + emission_scores[mapping]
-    # print "Scores:", scores
-    minimum = min(scores.keys(), key=lambda x: scores[x])
-    return minimum
-
-class DiscreteHMM(AbstractHMM):
-    """
-    I am an HMM with discrete emission distributions.
-    """
-
-    def __init__(self, number_of_states, alphabet_size, state_labels=None, random_emissions=False, *args, **kwargs):
-        super(DiscreteHMM, self).__init__(number_of_states, state_labels, *args, **kwargs)
-        self.alphabetSize = alphabet_size
-        self.emissionDistributions = [DiscreteDistribution(n=alphabet_size, randomize=random_emissions) for _ in
-                                      range(self.nStates)]
-        self.sanity_check()
-
-    def sanity_check(self):
-        super(DiscreteHMM, self).sanity_check()
-        for dist in self.emissionDistributions:
-            assert np.isclose(dist.probabilities.sum(), 1.)
+        return emission_score
 
     def do_pass(self, observations, verbose=False):
         text = \

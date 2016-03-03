@@ -5,7 +5,6 @@ from numpy.random import choice
 
 from kerehmm.util import DELTA_P, random_simplex, CONVERGENCE_DELTA_LOG_LIKELIHOOD
 
-
 class AbstractHMM(object):
     """
     This is an abstract HMM class which has to be inherited
@@ -31,6 +30,83 @@ class AbstractHMM(object):
         self.emissionDistributions = np.array([None for _ in range(self.nStates)], dtype=object)
         self.stateLabels = state_labels
         self.verbose = verbose
+
+    def compute_initprob_mapping_score(self, to_hmm, mapping):
+        """
+        Computes the standardized difference between the mapped initprob
+        array and to_hmm.initialProbabilities.
+
+        :param to_hmm:
+        :param mapping:
+        :return:
+        """
+        from_prob_init = self.initialProbabilities[mapping]
+        to_prob_init = to_hmm.initialProbabilities
+        return np.sum(np.abs(to_prob_init - from_prob_init)) / self.nStates
+
+    def compute_transition_mapping_score(self, to_hmm, mapping):
+        """
+        Computes the standardized difference between the (mapped) transitionMatrix
+        array and to_hmm.transitionMatrix.
+
+        :param to_hmm:
+        :param mapping:
+        :return:
+        """
+        to_trans = to_hmm.transitionMatrix
+        from_trans = self.transitionMatrix[:, mapping][mapping, :]
+        return np.sum(np.abs(to_trans - from_trans)) / (self.nStates ** 2)
+
+    def compute_emission_mapping_score(self, to_hmm, mapping):
+        raise NotImplementedError("AbstractHMM doesn't define emissions, override this for concrete implementations.")
+
+    def compute_mapping_to(self, to_hmm):
+        """
+        Computes the most likely mapping from this hmm to the hmm given as a parameter.
+        :param hmm:
+        :return:
+        """
+        from itertools import permutations
+        from collections import defaultdict
+        assert self.nStates == to_hmm.nStates
+        nStates = self.nStates
+        candidate_mappings = permutations(range(self.nStates))
+        scores = dict()
+        emission_scores = defaultdict(int)
+        for mapping in candidate_mappings:
+            # print "Mapping:", mapping
+            # compare prob_inits
+            scores[mapping] = self.compute_initprob_mapping_score(to_hmm, list(mapping))
+
+            # compare transitions
+            scores[mapping] += self.compute_transition_mapping_score(to_hmm, list(mapping))
+
+            # compare emissions
+            emission_scores[mapping] = self.compute_emission_mapping_score(to_hmm, list(mapping))
+
+        # normalize emission scores
+        emission_scores = np.array(emission_scores.values())
+        emission_scores /= np.sum(emission_scores)
+
+        for mapping in candidate_mappings:
+            scores[mapping] = scores[mapping] + emission_scores[mapping]
+
+        minimum = min(scores.keys(), key=lambda x: scores[x])
+        return minimum
+
+    def rearrange(self, mapping):
+        """
+        Rearranges the HMM so that the current states map onto the corresponding state
+        in the list mapping. For instance, a 3-state hmm with mapping 0,2,1 will have its states
+        relabeled as 0->0, 1->2, 2->1. This is useful when comparing HMMs since they
+        often have different state orderings.
+        :param mapping:
+        :return:
+        """
+        self.initialProbabilities = self.initialProbabilities[mapping]
+        self.stateLabels = self.stateLabels[mapping]
+        self.transitionMatrix = self.transitionMatrix[mapping, :][:, mapping]
+        self.emissionDistributions = self.emissionDistributions[mapping]
 
     def initialize_parameters(self, observations):
         """
@@ -202,34 +278,42 @@ class AbstractHMM(object):
     def backward_probability(self, observations):
         raise NotImplementedError()
 
-    @staticmethod
-    def gamma(alpha, beta):
-        gamma = alpha * beta / np.expand_dims((alpha * beta).sum(axis=-1), axis=1)
+    # @staticmethod
+    def gamma(self, alpha, beta, scale):
+        gamma = np.empty(shape=(len(scale), self.nStates))
+        for t, c in enumerate(scale):
+            gamma[t, :] = alpha[t] * beta[t] * c
+        # gamma = (alpha * beta) / np.expand_dims(scale, axis=-1)
+        # print gamma
         return gamma
 
-    def xi(self, observations, alpha=None, beta=None, scale=None):
+    def zi(self, observations, alpha=None, beta=None, scale=None):
         """
         Equation 37 from Rabiner 1989. Utilised for training.
         :param observations:
         :return:
         """
         from itertools import product
-        xi = np.empty(shape=(len(observations) - 1, self.nStates, self.nStates))
+        zi = np.empty(shape=(len(observations) - 1, self.nStates, self.nStates))
         if alpha is not None:
             alpha, scale = self.forward(observations)
         if beta is not None:
             beta = self.backward(observations, scale_coefficients=scale)
 
         for t, _ in enumerate(observations[:-1]):
-            # running_sum = 0
+            # print -np.log(scale)
+            # denom = np.exp(-np.log(scale).sum())
             for i, j in product(range(self.nStates), range(self.nStates)):
-                xi[t, i, j] = alpha[t, i] \
+                zi[t, i, j] = alpha[t, i] \
                               * self.transitionMatrix[i, j] \
                               * self.emission_probability(j, observations[t + 1]) \
                               * beta[t + 1, j]
-                # running_sum = np.logaddexp(running_sum, xi[t, i, j])
-            xi[t, :] /= alpha[-1].sum()
-        return xi
+
+                # running_sum = np.logaddexp(running_sum, zi[t, i, j])
+                # zi[t, :] /= alpha[-1].sum()
+                # zi[t, :] = np.exp(np.log(zi[t, :]) + np.log(scale).sum())
+        # print zi
+        return zi
 
     def backward(self, observations, scale_coefficients):
         """
@@ -282,11 +366,11 @@ class AbstractHMM(object):
         self.transitionMatrix[:] = delta_p
         for state in range(self.nStates):
             try:
-                self.transitionMatrix[state, state + 1] = 1 - delta_p * (self.nStates - 1)
+                self.transitionMatrix[state, state + 1] = - delta_p * (self.nStates - 1) + 1.
             # last state cannot have a valid trans[state+1]
             except IndexError:
                 assert state == self.nStates - 1
-                self.transitionMatrix[state, 0] = 1 - delta_p * (self.nStates - 1)
+                self.transitionMatrix[state, 0] = - delta_p * (self.nStates - 1) + 1.
 
         # set the initial probs the same way
         self.initialProbabilities = np.array([1 - delta_p * (self.nStates - 1)] + \
@@ -336,10 +420,10 @@ class AbstractHMM(object):
             new_f = self.forward_probability(observations)
             delta_p = new_f - old_f
             print "Is this an improvement? {}".format("Yes" if delta_p > 0 else "No")
+            print 'New log likelihood = {}'.format(new_f)
+            print 'Delta llk = {}'.format(delta_p)
             if auto_stop:
                 # if not (i % 100):
-                print 'New log likelihood = {}'.format(new_f)
-                print 'Delta llk = {}'.format(delta_p)
                 if delta_p <= CONVERGENCE_DELTA_LOG_LIKELIHOOD:
                     break
 
@@ -349,13 +433,18 @@ class AbstractHMM(object):
         # print delta_p / np.exp(old_f)
 
     def emit(self):
-        return self.emissionDistributions[self.current_state].emit()
+        obs = self.emissionDistributions[self.current_state].emit()
+        # print "Emitted {}".format(obs)
+        return obs
 
     def transition(self):
-        if self.current_state:
+        text = "Transition to"
+        if self.current_state is not None:
             self.current_state = choice(range(self.nStates), p=self.transitionMatrix[self.current_state,])
         else:
+            text = "Start at"
             self.current_state = choice(range(self.nStates), p=self.initialProbabilities)
+            # print "{} state{}".format(text, self.current_state)
 
     def simulate(self, iterations=1, reset=True):
         emissions = []
