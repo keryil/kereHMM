@@ -1,6 +1,6 @@
 import numpy as np
 
-CONVERGENCE_DELTA_LOG_LIKELIHOOD = 1e-04
+CONVERGENCE_DELTA_LOG_LIKELIHOOD = 1e-05
 DELTA_P = 1.0e-10
 
 
@@ -26,23 +26,13 @@ def random_simplex(size, two_d=False, log_scale=False):
     :param shape:
     :return:
     """
-    arr = None
     if two_d:
-        def new():
-            a = np.random.uniform(low=.1, high=1. / size, size=(size, size))
-            for i in range(size):
-                a[i, i:] = a[i, i:] / np.sum(a[i, i:]) * (1 - np.sum(a[i, :i]))
-                a[i + 1:, i] = a[i + 1:, i] / np.sum(a[i + 1:, i]) * (1 - np.sum(a[:i + 1, i]))
-            return a
-
-        arr = new()
-        while (arr <= 0).any():
-            arr = new()
-
-            # print "Returning {}".format(arr)
+        arr = np.random.uniform(low=DELTA_P, high=.9, size=size ** 2).reshape((size, size))
     else:
-        arr = np.random.uniform(low=DELTA_P, high=1, size=size)
-        arr /= np.sum(arr)
+        arr = np.random.uniform(low=DELTA_P, high=.9, size=size)
+    # make differences more extreme
+    # arr = arr * arr
+    arr = smooth_probabilities(arr)
     return arr if not log_scale else np.log(arr)
 
 
@@ -67,6 +57,7 @@ def smooth_probabilities(probabilities):
         counter = len(probabilities[probabilities < DELTA_P])
         probabilities -= counter * DELTA_P / (len(probabilities) - counter)
         probabilities[probabilities < DELTA_P] = DELTA_P
+        probabilities /= probabilities.sum()
     else:
         raise ValueError("Expected a 1d or 2d array, gotten shape {}.".format(probabilities.shape))
     return probabilities

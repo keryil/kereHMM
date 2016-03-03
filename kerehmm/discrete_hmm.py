@@ -3,12 +3,104 @@ from itertools import product
 
 import numpy as np
 
-from kerehmm.util import smooth_probabilities
-from .abstract_hmm import AbstractHMM
-from .distribution import DiscreteDistribution
+from kerehmm.abstract_hmm import AbstractHMM
+from kerehmm.distribution import DiscreteDistribution
+from kerehmm.util import smooth_probabilities, DELTA_P
 
 
-# add_logs = lambda lst: reduce(np.logaddexp, lst)
+def align_hmm_to(from_hmm, to_hmm):
+    """
+    Function that tries to align two HMMs by making their most similar
+    states coincide. Returns a list of how to map from_hmm states
+    onto those of to_hmm.
+
+    Let's have two simple and equivalent HMMs that only differ in
+    the state order, and are uniform except initial probs.
+    >>> import numpy as np
+    >>> hmm1 = DiscreteHMM(3, 3)
+    >>> hmm1.initialProbabilities = np.array([.1, .7, .8])
+    >>> hmm1.initialProbabilities
+    array([ 0.1,  0.7,  0.8])
+    >>> hmm2 = DiscreteHMM(3, 3)
+    >>> hmm2.initialProbabilities = np.array([.8, .7, .1])
+    >>> hmm2.initialProbabilities
+    array([ 0.8,  0.7,  0.1])
+    >>> align_hmm_to(hmm1, hmm2)
+    (2, 1, 0)
+
+    differences are in transition probs
+    swapped states 1&2.
+    >>> hmm1 = DiscreteHMM(3, 3)
+    >>> hmm1.transitionMatrix = np.array([[.9, 0,.1],\
+                                          [.2,.8, 0],\
+                                          [0 ,.3,.7]])
+    >>> hmm2 = DiscreteHMM(3, 3)
+    >>> hmm2.transitionMatrix = np.array([[.9, .1,.0],\
+                                          [0 ,.7,.3],\
+                                          [.2,.0,.8]])
+    >>> align_hmm_to(hmm1, hmm2)
+    (0, 2, 1)
+
+    differences are in emission probs
+    swapped states 0&2.
+    >>> hmm1 = DiscreteHMM(3, 3)
+    >>> hmm1.emissionDistributions[0].probabilities = np.array([.1, .1, .8])
+    >>> hmm2 = DiscreteHMM(3, 3)
+    >>> hmm2.emissionDistributions[2].probabilities = np.array([.1, .1, .8])
+
+    >>> align_hmm_to(hmm1, hmm2)
+    (2, 1, 0)
+
+    :param from_hmm:
+    :param to_hmm:
+    :return:
+    """
+    from itertools import permutations
+    from collections import defaultdict
+    assert from_hmm.nStates == to_hmm.nStates
+    nStates = from_hmm.nStates
+    candidate_mappings = permutations(range(from_hmm.nStates))
+    scores = dict()
+    emission_scores = defaultdict(int)
+    for mapping in candidate_mappings:
+        # print "Mapping:", mapping
+        # compare prob_inits
+        from_prob_init = np.array([from_hmm.initialProbabilities[i] for i in mapping])
+        to_prob_init = to_hmm.initialProbabilities
+        prob_score = np.abs(to_prob_init - from_prob_init)
+        scores[mapping] = np.sum(prob_score) / nStates
+
+        # compare transitions
+        to_trans = to_hmm.transitionMatrix
+        # print "To:", to_trans
+        from_trans = from_hmm.transitionMatrix[:, mapping][mapping, :]
+        # print "From:", from_trans
+        prob_score = np.sum(np.abs(to_trans - from_trans))
+        scores[mapping] += prob_score / (nStates * nStates)
+        # print "Score: ", prob_score / (nStates * nStates)
+
+        # compare emissions
+        from_emissions = [from_hmm.emissionDistributions[i] for i in mapping]
+        to_emissions = to_hmm.emissionDistributions
+        # print from_emissions
+        # print to_emissions
+        emission_score = 0.
+        for fro, to in zip(from_emissions, to_emissions):
+            # print "Fro:", fro.probabilities, "To:", to.probabilities
+            assert isinstance(fro, DiscreteDistribution)
+            # print "Emission score:", fro.b_distance(to)
+            emission_score += fro.b_distance(to)
+        emission_scores[mapping] = emission_score
+
+    emission_scores = np.array(emission_scores.values())
+    emission_scores /= np.sum(emission_scores)
+    # print "Emission scores:", emission_scores
+    # print "Scores before emissions: ", scores
+    for mapping in candidate_mappings:
+        scores[mapping] = scores[mapping] + emission_scores[mapping]
+    # print "Scores:", scores
+    minimum = min(scores.keys(), key=lambda x: scores[x])
+    return minimum
 
 class DiscreteHMM(AbstractHMM):
     """
@@ -48,19 +140,19 @@ class DiscreteHMM(AbstractHMM):
         # print "FORWARD PROB: {}".format(np.exp(self.forward_probability(observations)))
         # initial probabilities
         pi_new = np.zeros_like(self.initialProbabilities)
-        # xi = np.zeros(shape=(len(observations), self.nStates, self.nStates))
+        # zi = np.zeros(shape=(len(observations), self.nStates, self.nStates))
         alpha, scale = self.forward(observations)
         beta = self.backward(observations, scale_coefficients=scale)
-        xi = self.xi(observations=observations, alpha=alpha, beta=beta)
+        xi = self.zi(observations=observations, alpha=alpha, beta=beta)
         # gamma = np.zeros(shape=(len(observations), self.nStates))  # self.gamma2(observations=observations)
-        gamma = self.gamma(alpha, beta)
+        gamma = self.gamma(alpha, beta, scale)
         # text = \
         #     """
         #     Xi      = {}
         #     Gamma   = {}
         #     Alpha   = {}
         #     Beta    = {}
-        #     """.format(*map(np.exp, [xi, gamma, alpha, beta]))
+        #     """.format(*map(np.exp, [zi, gamma, alpha, beta]))
         # print text
         T = len(observations)
 
@@ -74,7 +166,7 @@ class DiscreteHMM(AbstractHMM):
             for symbol in range(self.alphabetSize):
                 nominator = gamma[np.array(observations) == symbol, state]
                 if len(nominator):
-                    nominator = (gamma[np.array(observations) == symbol, state].sum())
+                    nominator = nominator.sum()
                 else:
                     nominator = 0
                 dist.probabilities[symbol] = nominator
@@ -86,7 +178,7 @@ class DiscreteHMM(AbstractHMM):
         # TODO: there might be a problem with the backwards probabilities.
         trans_new = np.empty_like(self.transitionMatrix)
         # trans_new[:] = -np.inf
-        # local_xi = xi[:T - 1]
+        # local_xi = zi[:T - 1]
         # local_gamma = gamma[:T - 1]
         for from_, to in product(range(self.nStates), range(self.nStates)):
             sum_xi = xi[:T - 1, from_, to].sum()
@@ -127,3 +219,36 @@ class DiscreteHMM(AbstractHMM):
 
     def initialize_parameters(self, observations):
         pass
+
+    def setup_left_to_right(self, set_emissions=False):
+        """
+        Converts this HMM into a strictly left-to-right one.
+        :return:
+        """
+        # if self.nStates != self.alphabetSize:
+        #     raise ValueError("")
+
+        delta_p = DELTA_P
+        self.transitionMatrix[:] = delta_p
+        for state in range(self.nStates):
+            try:
+                self.transitionMatrix[state, state] = - delta_p * (self.nStates - 2) + .5
+                self.transitionMatrix[state, state + 1] = - delta_p * (self.nStates - 2) + .5
+            # last state cannot have a valid trans[state+1]
+            except IndexError:
+                assert state == self.nStates - 1
+                self.transitionMatrix[state, 0] = - delta_p * (self.nStates - 2) + .5
+
+        # set the initial probs the same way
+        self.initialProbabilities = np.array([1 - delta_p * (self.nStates - 1)] + \
+                                             [delta_p] * (self.nStates - 1))
+
+        if set_emissions:
+            # set emission probabilities so that each state only emits
+            # its own label
+            for state in range(self.nStates):
+                distribution = self.emissionDistributions[state]
+                probs = np.empty_like(distribution.probabilities)
+                probs[:] = DELTA_P
+                probs[state] = 1 - (self.nStates - 1) * DELTA_P
+                distribution.probabilities = probs

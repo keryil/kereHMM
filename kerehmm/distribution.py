@@ -19,6 +19,7 @@ class Distribution(object):
         """
         raise NotImplementedError()
 
+
 class DiscreteDistribution(Distribution):
     """
     I am a discrete distribution.
@@ -36,6 +37,37 @@ class DiscreteDistribution(Distribution):
 
     def emit(self):
         return choice(range(self.n), p=self.probabilities)
+
+    def b_coefficient(self, other_dist):
+        """
+        Bhattacharyya coefficient
+
+        :return:
+
+        >>> d1 = DiscreteDistribution(3)
+        >>> d1.probabilities
+        array([ 0.33333333,  0.33333333,  0.33333333])
+        >>> d2 = DiscreteDistribution(3)
+        >>> d2.probabilities
+        array([ 0.33333333,  0.33333333,  0.33333333])
+        >>> d1.b_coefficient(d2) == d2.b_coefficient(d1)
+        True
+        >>> expected = np.sqrt(np.sum([1./3 ** 2] * 3))
+        >>> expected
+        0.57735026918962573
+        >>> d1.b_coefficient(d2) == expected
+        True
+        """
+        assert isinstance(other_dist, DiscreteDistribution)
+        assert other_dist.n == self.n
+        running_sum = np.sum(self.probabilities * other_dist.probabilities)
+        return np.sqrt(running_sum)
+
+    def b_distance(self, other_dist):
+        coef = self.b_coefficient(other_dist)
+        return -np.log(coef)
+
+
 
 
 class GaussianDistribution(Distribution):
