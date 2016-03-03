@@ -19,6 +19,7 @@ class Distribution(object):
         """
         raise NotImplementedError()
 
+
 class DiscreteDistribution(Distribution):
     """
     I am a discrete distribution.
@@ -27,15 +28,46 @@ class DiscreteDistribution(Distribution):
     def __init__(self, n, randomize=False):
         self.n = n
         # initialize to 1/n
-        self.probabilities = np.log(np.array([1. / n] * n))
+        self.probabilities = np.array([1. / n] * n)
         if randomize:
-            self.probabilities = np.log(random_simplex(n))
+            self.probabilities = random_simplex(n)
 
     def get_probability(self, observation, *args, **kwargs):
         return self.probabilities[observation]
 
     def emit(self):
-        return choice(range(self.n), p=np.exp(self.probabilities))
+        return choice(range(self.n), p=self.probabilities)
+
+    def b_coefficient(self, other_dist):
+        """
+        Bhattacharyya coefficient
+
+        :return:
+
+        >>> d1 = DiscreteDistribution(3)
+        >>> d1.probabilities
+        array([ 0.33333333,  0.33333333,  0.33333333])
+        >>> d2 = DiscreteDistribution(3)
+        >>> d2.probabilities
+        array([ 0.33333333,  0.33333333,  0.33333333])
+        >>> d1.b_coefficient(d2) == d2.b_coefficient(d1)
+        True
+        >>> expected = np.sqrt(np.sum([1./3 ** 2] * 3))
+        >>> expected
+        0.57735026918962573
+        >>> d1.b_coefficient(d2) == expected
+        True
+        """
+        assert isinstance(other_dist, DiscreteDistribution)
+        assert other_dist.n == self.n
+        running_sum = np.sum(self.probabilities * other_dist.probabilities)
+        return np.sqrt(running_sum)
+
+    def b_distance(self, other_dist):
+        coef = self.b_coefficient(other_dist)
+        return -np.log(coef)
+
+
 
 
 class GaussianDistribution(Distribution):
@@ -55,7 +87,7 @@ class GaussianDistribution(Distribution):
     You can simply use bracket indexing to get the probability of
     an observation. Note that all probabilities are in log scale.
     >>> from scipy import stats
-    >>> m[(0, 0)] == stats.multivariate_normal(mean=m.mean, cov=m.variance).logpdf((0,0))
+    >>> m[(0, 0)] == stats.multivariate_normal(mean=m.mean, cov=m.variance).pdf((0,0))
     True
 
     It also supports univariate gaussians.
@@ -64,7 +96,7 @@ class GaussianDistribution(Distribution):
     0
     >>> m.variance
     1
-    >>> m[0] == stats.norm(loc=0, scale=1).logpdf(0)
+    >>> m[0] == stats.norm(loc=0, scale=1).pdf(0)
     True
 
     You can also randomize the means upon initialization by passing random=True.
@@ -95,7 +127,7 @@ class GaussianDistribution(Distribution):
                         raise ValueError("Mean has invalid shape: \nmean\t=\t{}".format(mean))
                 else:
                     if self.dimensions == 1:
-                        return 0
+                        return 0.
                     else:
                         return np.zeros(shape=(self.dimensions,))
 
@@ -104,10 +136,10 @@ class GaussianDistribution(Distribution):
                 return variance
             if self.dimensions == 1:
                 if random:
-                    return 1
+                    return 1.
                     # return np.random.random()
                 else:
-                    return 1
+                    return 1.
             else:
                 variances = np.zeros((self.dimensions, self.dimensions))
                 np.fill_diagonal(variances, 1)
@@ -118,9 +150,9 @@ class GaussianDistribution(Distribution):
 
     def get_probability(self, observation, *args, **kwargs):
         if self.dimensions != 1:
-            return multivariate_normal(mean=self.mean, cov=self.variance).logpdf(observation)
+            return multivariate_normal(mean=self.mean, cov=self.variance).pdf(observation)
         else:
-            return norm(loc=self.mean, scale=self.variance).logpdf(observation)
+            return norm(loc=self.mean, scale=self.variance).pdf(observation)
 
     def emit(self):
         if self.dimensions != 1:
