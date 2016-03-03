@@ -108,6 +108,15 @@ class AbstractHMM(object):
         self.transitionMatrix = self.transitionMatrix[mapping, :][:, mapping]
         self.emissionDistributions = self.emissionDistributions[mapping]
 
+    def rearrange_like(self, hmm):
+        """
+        Rearranges the state ordering of this hmm so that it aligns with the hmm given as the parameter
+        as closely as possible.
+        :param hmm:
+        :return:
+        """
+        self.rearrange(self.compute_mapping_to(hmm))
+
     def initialize_parameters(self, observations):
         """
         Initializes (i.e. roughly estimates) the parameters based on the observation before training.

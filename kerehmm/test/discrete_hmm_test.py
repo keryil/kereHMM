@@ -98,13 +98,15 @@ class TestStandalone(DiscreteHMMTest):
         assert np.array_equal(viterbi_path, true_path)
 
     def test_training_from_simulation(self):
-        self.nStates = 2
-        self.nSymbols = 2
-        observation_size = 100
+        self.nStates = 3
+        self.nSymbols = 3
+        observation_size = 300
 
         hmm = self.new_hmm(random_transitions=True, random_emissions=True)
         # hmm.setup_strict_left_to_right()
-        reference_hmm = self.new_hmm(random_emissions=True, random_transitions=True)
+        reference_hmm = self.new_hmm(random_emissions=True)  # , random_transitions=True)
+        reference_hmm.setup_left_to_right()
+        # reference_hmm.current_state = 0
         true_init_p = reference_hmm.initialProbabilities
         true_trans_p = reference_hmm.transitionMatrix
         true_emission_p = np.array(map(lambda x: x.probabilities, reference_hmm.emissionDistributions))
@@ -136,7 +138,7 @@ class TestStandalone(DiscreteHMMTest):
                           np.sum(np.abs(true_trans_p - hmm.transitionMatrix)),
                           observation_size, observations)
 
-        hmm.train(observations, iterations=500)
+        hmm.train(observations, auto_stop=False, iterations=10)
         print text.format(true_init_p, hmm.initialProbabilities,
                           np.sum(np.abs(true_init_p - hmm.initialProbabilities)),
                           true_emission_p, np.array([p.probabilities for p in hmm.emissionDistributions]),
@@ -156,13 +158,13 @@ class TestStandalone(DiscreteHMMTest):
         # hmm.setup_strict_left_to_right()
         true_init_p = random_simplex(self.nStates)
         true_states = [choice(range(self.nStates), p=true_init_p)]
-        true_trans_p = np.array([[.90, .05, .05],
+        true_trans_p = np.array([[.50, .15, .35],
                                  [.10, .80, .10],
                                  [.20, .10, .70]])  # random_simplex(self.nStates, two_d=True)
         for i in range(1, observation_size):
             true_states.append(choice(range(self.nStates), p=true_trans_p[true_states[-1]]))
         true_emission_p = np.array([[.70, .30],
-                                    [.70, .30],
+                                    [.40, .60],
                                     [.10, .90]])  # [random_simplex(self.nSymbols) for _ in range(self.nStates)]
         observations = [choice(range(self.nSymbols), p=true_emission_p[state]) for state in true_states]
 
@@ -258,7 +260,6 @@ class TestAgainstGhmm(DiscreteHMMTest):
         hmm = self.new_hmm()
         hmm.setup_strict_left_to_right(set_emissions=True)
         domain = ghmm.Alphabet(range(hmm.alphabetSize))
-
         hmm_reference = ghmm_from_discrete_hmm(hmm)
         seq = list(range(self.nSymbols))
         print "True path and emission: {}".format(seq)
